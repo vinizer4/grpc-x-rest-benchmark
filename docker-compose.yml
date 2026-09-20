@@ -53,5 +53,23 @@ services:
       postgres:
         condition: service_healthy
 
+  # Run after sales-service-rest or sales-service-grpc has started at least once
+  # (Flyway creates the vendas table on their startup; datagen only inserts into it).
+  datagen:
+    profiles: ["datagen"]
+    build:
+      context: .
+      dockerfile: datagen/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sales
+      DB_USER: sales
+      DB_PASSWORD: sales
+      TOTAL_REGISTROS: 8000000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:

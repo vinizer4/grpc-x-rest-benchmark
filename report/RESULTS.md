@@ -1,5 +1,7 @@
 # POC: REST vs gRPC — Histórico Anual de Loja
 
+🌐 [Read this in English](RESULTS.en.md)
+
 **Data da rodada:** 2026-09-20
 **Ambiente:** Docker Compose local (Postgres 16, 2 serviços Spring Boot 4.1 / Kotlin, 2 gateways nginx simulando API Gateway e ALB), containers limitados a 1 vCPU / 1GiB (perfil de pod EKS)
 

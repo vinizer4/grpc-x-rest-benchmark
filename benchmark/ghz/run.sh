@@ -52,6 +52,7 @@ ghz --cacert "$CACERT" \
   --call com.benchmark.sales.grpc.SalesService/GetStoreAnnualHistory \
   -c "$CONCURRENCY" \
   -z "$DURATION" \
+  --duration-stop=wait \
   -t 90s \
   --max-recv-message-size 20971520 \
   -D "$DATA_FILE" \

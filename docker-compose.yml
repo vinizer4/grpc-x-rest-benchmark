@@ -76,6 +76,7 @@ services:
     build:
       context: .
       dockerfile: gateway/api-gateway-sim/Dockerfile
+    restart: on-failure
     cap_add:
       - NET_ADMIN
     ports:
@@ -89,6 +90,7 @@ services:
     build:
       context: .
       dockerfile: gateway/alb-grpc-sim/Dockerfile
+    restart: on-failure
     cap_add:
       - NET_ADMIN
     ports:

@@ -74,6 +74,8 @@ services:
     build:
       context: .
       dockerfile: gateway/api-gateway-sim/Dockerfile
+    cap_add:
+      - NET_ADMIN
     ports:
       - "8443:8443"
     depends_on:
@@ -85,6 +87,8 @@ services:
     build:
       context: .
       dockerfile: gateway/alb-grpc-sim/Dockerfile
+    cap_add:
+      - NET_ADMIN
     ports:
       - "9443:8443"
     depends_on:

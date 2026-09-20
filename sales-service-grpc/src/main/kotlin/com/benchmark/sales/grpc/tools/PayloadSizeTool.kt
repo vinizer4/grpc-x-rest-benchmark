@@ -77,7 +77,9 @@ private fun fetchGrpcProtoBytes(
     val credentials = TlsChannelCredentials.newBuilder()
         .trustManager(File(cacertPath))
         .build()
-    val channel = NettyChannelBuilder.forAddress(host, port, credentials).build()
+    val channel = NettyChannelBuilder.forAddress(host, port, credentials)
+        .maxInboundMessageSize(20 * 1024 * 1024)
+        .build()
     try {
         val stub = SalesServiceGrpc.newBlockingStub(channel)
         val request = GetStoreAnnualHistoryRequest.newBuilder()

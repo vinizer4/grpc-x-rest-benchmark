@@ -2,7 +2,7 @@
 
 🌐 [Read this in English](LINKEDIN_ARTICLE.en.md)
 
-*Depois de meses ouvindo "gRPC é mais rápido" sem nenhum número por trás, decidi construir uma POC completa por conta própria — fora do horário de trabalho, no meu computador pessoal — com bugs reais, dados honestos e a mesma sinceridade sobre onde gRPC perde quanto sobre onde ele ganha.*
+*Depois de meses ouvindo "gRPC é mais rápido" sem nenhum número por trás, decidi construir uma POC completa por conta própria com dados honestos e a mesma sinceridade sobre onde gRPC perde quanto sobre onde ele ganha.*
 
 ## Por que fazer isso
 

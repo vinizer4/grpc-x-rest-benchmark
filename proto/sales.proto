@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package com.benchmark.sales.grpc;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.benchmark.sales.grpc";
+option java_outer_classname = "SalesProto";
+
+message Venda {
+  string id_venda = 1;
+  int64 id_produto = 2;
+  string nome_produto = 3;
+  string categoria = 4;
+  int32 quantidade = 5;
+  double valor_unitario = 6;
+  double valor_total = 7;
+  google.protobuf.Timestamp data_venda = 8;
+  int32 id_loja = 9;
+  string nome_loja = 10;
+  string regiao = 11;
+  string forma_pagamento = 12;
+}
+
+message ConsultarVendasPorProdutoRequest {
+  int64 id_produto = 1;
+  google.protobuf.Timestamp data_inicio = 2;
+  google.protobuf.Timestamp data_fim = 3;
+}
+
+message ConsultarVendasPorLojaRequest {
+  int32 id_loja = 1;
+  google.protobuf.Timestamp data_inicio = 2;
+  google.protobuf.Timestamp data_fim = 3;
+}
+
+message ConsultarVendasResponse {
+  repeated Venda vendas = 1;
+  int64 total_registros = 2;
+}
+
+service SalesService {
+  rpc ConsultarVendasPorProduto(ConsultarVendasPorProdutoRequest) returns (ConsultarVendasResponse);
+  rpc ConsultarVendasPorLoja(ConsultarVendasPorLojaRequest) returns (ConsultarVendasResponse);
+}

@@ -1,0 +1,8 @@
+.gradle/
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+.DS_Store
+*.iml
+.idea/

@@ -24,26 +24,36 @@ A lógica de negócio é idêntica nos dois serviços (módulo `sales-domain` co
 
 ## 2. Latência e throughput
 
-| Protocolo | Cenário | Perfil de rede | p50 (ms) | p95 (ms) | p99 (ms) | Throughput (req/s) | Sucesso |
-|---|---|---|---|---|---|---|---|
-| REST | médio | baseline | 1128 | 1756 | 2153 | 17,2 | 100% |
-| gRPC | médio | baseline | 839 | 1517 | 2008 | 22,2 | 100% |
-| REST | médio | same-az | 968 | 1407 | 1738 | 20,5 | 100% |
-| gRPC | médio | same-az | 917 | 1439 | 1794 | 20,6 | 100% |
-| REST | médio | cross-az | 1026 | 1632 | 1844 | 19,1 | 100% |
-| gRPC | médio | cross-az | 793 | 1282 | 1505 | 24,0 | 100% |
-| REST | médio | cross-region | 1876 | 5685 | **11034** | 7,0 | 100% |
-| gRPC | médio | cross-region | 1470 | 2494 | **3172** | 12,5 | 100% |
-| REST | grande | baseline | 939 | 1316 | 1633 | 5,1 | 100% |
-| gRPC | grande | baseline | 785 | 1155 | 1564 | 6,2 | 100% |
-| REST | grande | same-az | 941 | 1534 | 1726 | 5,2 | 100% |
-| gRPC | grande | same-az | 807 | 1233 | 1785 | 5,8 | 100% |
-| REST | grande | cross-az | 932 | 1463 | 1822 | 5,1 | 100% |
-| gRPC | grande | cross-az | 840 | 1377 | 1817 | 5,7 | 100% |
-| REST | grande | cross-region | 1194 | 3416 | 4928 | 3,0 | 100% |
-| gRPC | grande | cross-region | 1472 | 3251 | 3959 | 3,0 | 100% |
+### Legenda — o que cada coluna significa
 
-*(Gerada automaticamente por `benchmark/consolidate/consolidate.py` a partir das saídas de `k6` e `ghz`; ver `benchmark/results/summary-latency.csv` para os números completos e `benchmark/results/charts/` para os gráficos por cenário.)*
+- **Protocolo**: `REST` = JSON via `api-gateway-sim`; `gRPC` = Protobuf via `alb-grpc-sim`.
+- **Cenário**: `médio` = consulta de 3 meses (15 mil vendas + 15 promoções por resposta, ~3,3MB em JSON); `grande` = consulta de 12 meses (60 mil vendas + 60 promoções, ~13,1MB em JSON).
+- **Perfil de rede**: latência simulada entre o gateway e o cliente via `tc`/`netem` — `baseline` (sem shaping), `same-az` (~0,5ms), `cross-az` (~1,5ms), `cross-region` (~100ms).
+- **p50 / p95 / p99**: percentis de latência por requisição, em milissegundos. **p50** é a mediana — metade das requisições foi mais rápida que isso. **p95**/**p99** são a "cauda" — o teto que 95%/99% das requisições ficaram abaixo. Olhar só a mediana esconde picos de lentidão que afetam uma fração real dos usuários; por isso o p99 importa tanto quanto o p50.
+- **Throughput**: quantas requisições o serviço completou por segundo durante o teste de carga, com o número de conexões simultâneas usado no cenário (20 no médio, 5 no grande). Quanto maior, mais tráfego o mesmo pod aguenta.
+- **Sucesso**: percentual de requisições que completaram com resposta válida dentro da janela do teste.
+- **Vantagem do gRPC**: quanto o gRPC ganhou do REST em cada métrica, na mesma linha de cenário/perfil. Sinal **positivo em qualquer coluna significa gRPC melhor** (menos latência, mais throughput) — sinal negativo significa que o REST saiu na frente naquele ponto específico.
+
+| Protocolo | Cenário | Perfil de rede | p50 (ms) | p95 (ms) | p99 (ms) | Throughput (req/s) | Sucesso | Vantagem do gRPC |
+|---|---|---|---|---|---|---|---|---|
+| REST | médio | baseline | 1128 | 1756 | 2153 | 17,2 | 100% | |
+| gRPC | médio | baseline | 839 | 1517 | 2008 | 22,2 | 100% | p50 +26% · p95 +14% · p99 +7% · thr +29% |
+| REST | médio | same-az | 968 | 1407 | 1738 | 20,5 | 100% | |
+| gRPC | médio | same-az | 917 | 1439 | 1794 | 20,6 | 100% | p50 +5% · p95 -2% · p99 -3% · thr +0% |
+| REST | médio | cross-az | 1026 | 1632 | 1844 | 19,1 | 100% | |
+| gRPC | médio | cross-az | 793 | 1282 | 1505 | 24,0 | 100% | p50 +23% · p95 +21% · p99 +18% · thr +26% |
+| REST | médio | cross-region | 1876 | 5685 | **11034** | 7,0 | 100% | |
+| gRPC | médio | cross-region | 1470 | 2494 | **3172** | 12,5 | 100% | p50 +22% · p95 +56% · p99 +71% · thr +79% |
+| REST | grande | baseline | 939 | 1316 | 1633 | 5,1 | 100% | |
+| gRPC | grande | baseline | 785 | 1155 | 1564 | 6,2 | 100% | p50 +16% · p95 +12% · p99 +4% · thr +22% |
+| REST | grande | same-az | 941 | 1534 | 1726 | 5,2 | 100% | |
+| gRPC | grande | same-az | 807 | 1233 | 1785 | 5,8 | 100% | p50 +14% · p95 +20% · p99 -3% · thr +12% |
+| REST | grande | cross-az | 932 | 1463 | 1822 | 5,1 | 100% | |
+| gRPC | grande | cross-az | 840 | 1377 | 1817 | 5,7 | 100% | p50 +10% · p95 +6% · p99 +0% · thr +12% |
+| REST | grande | cross-region | 1194 | 3416 | 4928 | 3,0 | 100% | |
+| gRPC | grande | cross-region | 1472 | 3251 | 3959 | 3,0 | 100% | p50 **-23%** · p95 +5% · p99 +20% · thr +0% |
+
+*(Gerada automaticamente por `benchmark/consolidate/consolidate.py` a partir das saídas de `k6` e `ghz`; ver `benchmark/results/summary-latency.csv` para os números completos e `benchmark/results/charts/` para os gráficos por cenário. Coluna "Vantagem do gRPC" calculada como `(REST - gRPC) / REST` para latência e `(gRPC - REST) / REST` para throughput.)*
 
 **Leitura dos números — cenário médio (o mais representativo do padrão real de tráfego, com concorrência de 20):**
 - gRPC entrega **26% menos latência p50** e **29% mais throughput** que REST já na rede local (baseline), sem nenhuma condição adversa.

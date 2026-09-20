@@ -124,11 +124,51 @@ Para dar uma noção concreta de escala, simulamos (só matemática sobre os byt
 
 Para times com volumes ainda maiores (dezenas de milhares de lojas, múltiplas chamadas/dia), esse número escala linearmente e a economia absoluta cresce na mesma proporção.
 
-**Custo de compute (menos claro):** no cenário médio (mais representativo do tráfego real), o gRPC sustentou **20-29% mais throughput** com a mesma CPU/memória — em tese, isso poderia permitir atender a mesma carga com menos réplicas do serviço. No cenário grande, porém, os dois protocolos saturam igualmente CPU e memória (seção 4), então não há economia de compute nesse caso — o gargalo lá é o volume de dados por resposta, não o protocolo.
+### Custo de compute: menos pods para o mesmo throughput
 
-**Recomendação de leitura:** o ganho de custo mais defensável e imediato desta POC é a **redução de egress**, não a redução de compute. Antes de projetar economia, vale medir o volume real de tráfego mensal deste endpoint específico e aplicar a redução de ~55% sobre esse número real.
+Este é provavelmente o argumento de custo **mais forte** desta POC, mais do que o egress — compute (EC2/Fargate/EKS) costuma ser a maior linha da fatura de infraestrutura, não transferência de dados.
 
-## 7. Conclusão e recomendação
+No cenário médio (mais representativo do tráfego real, com concorrência de 20), o gRPC sustentou **20-29% mais throughput** com o **mesmo pod** (mesma CPU/memória, 1 vCPU/1GiB). Isso quer dizer que, para atender o mesmo pico de requisições/segundo, seriam necessárias **menos réplicas** do serviço.
+
+Exemplo de cálculo (premissas explícitas abaixo, ajustar com os números reais do seu ambiente):
+- Ganho de throughput considerado: **20%** (conservador — usamos o valor mais consistente entre baseline/cross-az; o pico de +79% em cross-region não foi usado para não superestimar).
+- Réplicas de referência por endpoint: **5 pods** de 1 vCPU/1GiB (premissa ilustrativa — troque pelo número real do seu serviço).
+- Custo de referência do pod: **AWS Fargate on-demand**, ~US$0,04048/vCPU-hora + ~US$0,004445/GB-hora ≈ **US$32,80/pod/mês** (1 vCPU + 1GiB, rodando 24/7).
+
+| | REST | gRPC | Redução |
+|---|---|---|---|
+| Pods necessários | 5,0 | 4,0 | -20% |
+| Custo de compute/ano | US$ 1.968 | US$ 1.574 | **US$ 393/ano** |
+
+Somando compute + egress, **um único endpoint deste porte economiza ~US$ 1.325/ano (36%)** — bem mais que os ~US$ 931/ano de egress isolado que discutimos antes.
+
+**No cenário grande (payload de 12 meses, baixa concorrência), essa lógica não se aplica**: os dois protocolos saturam igualmente CPU e memória (seção 4), então reduzir pods ali é arriscado (risco de OOM) — o gargalo é volume de dados por resposta, não o protocolo. A redução de compute é defensável para endpoints com tráfego concorrente típico (payload médio, muitas chamadas simultâneas), não para exports grandes e esporádicos.
+
+## 7. Cenário de escala: adoção em múltiplos endpoints
+
+Você perguntou: e se isso for adotado no sistema todo, não só neste endpoint? Esta seção simula (matemática sobre os números já medidos — nenhum teste adicional foi rodado) o efeito de aplicar o mesmo padrão de ganho (egress + compute, premissas da seção anterior) a **N endpoints de magnitude parecida** com o desta POC.
+
+| Endpoints migrados | Custo REST/ano | Custo gRPC/ano | Economia/ano | Pods REST | Pods gRPC |
+|---|---|---|---|---|---|
+| 1 | US$ 3.668 | US$ 2.343 | US$ 1.325 | 5 | 4 |
+| 5 | US$ 18.340 | US$ 11.717 | US$ 6.624 | 25 | 20 |
+| **10** | **US$ 36.680** | **US$ 23.433** | **US$ 13.247** | 50 | 40 |
+| 15 | US$ 55.021 | US$ 35.150 | US$ 19.871 | 75 | 60 |
+| **20** | **US$ 73.361** | **US$ 46.866** | **US$ 26.495** | 100 | 80 |
+
+**Respondendo diretamente ao exemplo pedido:** com **10 endpoints** de payload/tráfego parecido com o desta POC, a economia projetada é de **~US$ 13.250/ano** (egress + compute combinados) — e a infraestrutura necessária cai de 50 para 40 pods.
+
+![Infraestrutura necessária ao escalar](images/scale-pods.png)
+
+![Custo projetado ao escalar](images/scale-cost.png)
+
+**Com 20 endpoints** (cenário de produção plausível para um sistema com múltiplos serviços de consulta/relatório), a economia projetada chega a **~US$ 26.500/ano**, com **20 pods a menos** rodando permanentemente — isso é infraestrutura que deixa de existir, não só uma linha de custo menor: menos superfície para monitorar, menos capacidade reservada, menos objetos para o time de plataforma gerenciar.
+
+**Leia com cautela:** esta é uma extrapolação assumindo que os outros endpoints têm magnitude de payload/tráfego parecida com a medida aqui, e que a premissa de 5 pods/endpoint e o ganho de 20% de throughput se sustentam na prática. O objetivo deste gráfico não é prever o número exato, é mostrar a **direção e a ordem de grandeza** do ganho quando o mesmo padrão se repete em escala — o número real do seu sistema pode ser maior ou menor, e deve ser recalculado com os pods/tráfego reais de cada endpoint candidato.
+
+**Recomendação de leitura:** olhando para os três números juntos — egress de um endpoint (~US$ 931/ano), compute de um endpoint (~US$ 393/ano) e a projeção em escala (~US$ 13-26 mil/ano para 10-20 endpoints) — o argumento de custo só fica robusto **em escala**, aplicado a vários endpoints de alto tráfego, não como justificativa para migrar um endpoint isolado.
+
+## 8. Conclusão e recomendação
 
 **Onde o gRPC claramente compensa:**
 - Endpoints com tráfego concorrente relevante (dezenas de requisições simultâneas) — o ganho de throughput (+20-29%) e a robustez de latência sob rede ruim (p99 71% menor em cross-region) são diferenças que os usuários finais sentiriam diretamente.
@@ -147,16 +187,20 @@ Para times com volumes ainda maiores (dezenas de milhares de lojas, múltiplas c
 
 ## Resumo rápido
 
-| | REST (JSON) | gRPC (Protobuf) | Ganho do gRPC |
-|---|---|---|---|
-| Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | **-71%** |
-| Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | **+29%** |
-| Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | **-55%** |
-| Custo de egress projetado (4.000 lojas/dia, anual) | US$ 1.700 | US$ 769 | **-55% (US$ 931/ano)** |
+> **Como ler a coluna "Variação"**: o sinal indica se o número **caiu** (−) ou **subiu** (+) do REST para o gRPC — não indica se é bom ou ruim. A coluna "Resultado" ao lado já diz isso de forma direta: em **todas** as linhas, o resultado é uma melhora do gRPC sobre o REST.
+
+| | REST (JSON) | gRPC (Protobuf) | Variação | Resultado |
+|---|---|---|---|---|
+| Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | -71% | ✅ gRPC 71% mais rápido |
+| Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | +29% | ✅ gRPC atende 29% mais requisições/s |
+| Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | -55% | ✅ gRPC transmite 55% menos dados |
+| Custo total (egress+compute), 1 endpoint/ano | US$ 3.668 | US$ 2.343 | -36% | ✅ gRPC custa US$ 1.325/ano a menos |
+| Custo total (egress+compute), 20 endpoints/ano | US$ 73.361 | US$ 46.866 | -36% | ✅ gRPC custa US$ 26.495/ano a menos |
+| Pods necessários, 20 endpoints | 100 | 80 | -20 pods | ✅ gRPC precisa de 20 pods a menos |
 
 ![Resumo de desempenho e custo](images/final-summary.png)
 
-O ganho do gRPC é consistente nas duas frentes: **desempenho** (mais throughput, muito menos degradação de latência sob rede ruim) e **custo** (payload e egress ~55% menores). A ressalva fica pelos trade-offs operacionais da seção 5 — debugabilidade, geração de stubs, e a troca de componente de borda (API Gateway → ALB) — que são custos de adoção reais e não aparecem em nenhum desses gráficos.
+O ganho do gRPC é consistente em três frentes: **desempenho** (mais throughput, muito menos degradação de latência sob rede ruim), **custo direto** (payload e egress ~55% menores) e **custo de infraestrutura** (menos pods para o mesmo throughput, efeito que só fica financeiramente relevante quando aplicado a vários endpoints — ver seção 7). A ressalva fica pelos trade-offs operacionais da seção 5 — debugabilidade, geração de stubs, e a troca de componente de borda (API Gateway → ALB) — que são custos de adoção reais e não aparecem em nenhum desses gráficos.
 
 ---
 
@@ -165,3 +209,30 @@ O ganho do gRPC é consistente nas duas frentes: **desempenho** (mais throughput
 - Os perfis de rede usam **delay fixo, sem jitter nem perda de pacote**. Testes iniciais com jitter (`delay 100ms 20ms`) e perda simulada (`loss 0.05%`) causaram travamentos de retransmissão TCP patológicos no ambiente virtualizado do Docker Desktop (uma única requisição de 3MB chegou a levar 80 segundos), desproporcionais ao que uma condição real de cross-region causaria. O delay fixo ainda captura o efeito de latência por round-trip que os perfis existem para demonstrar, sem esse artefato.
 - Os containers dos dois serviços rodam com `-XX:MaxRAMPercentage=75.0` explícito — o padrão da JVM (25% do limite do container) deixaria heap insuficiente (~256MB de um limite de 1GiB) para este endpoint, causando `OutOfMemoryError` em ambos os serviços independentemente do protocolo. Isso é uma configuração de produção real que qualquer pod Java em Kubernetes deveria ter, não um ajuste especial para favorecer um lado da comparação.
 - Todos os testes tiveram uma rodada de aquecimento (warm-up) antes da medição, para evitar que o custo de JIT warm-up/inicialização de pool de conexões distorça os primeiros números.
+
+---
+
+## 9. Visão de mercado: gRPC além desta POC
+
+Tudo até aqui veio dos nossos testes. Esta seção é diferente: não é sobre a POC, é sobre **o que a indústria já documentou publicamente** sobre gRPC em produção.
+
+### Por que gRPC tende a ganhar em performance e custo operacional, de forma geral
+
+- **HTTP/2 multiplexado**: várias chamadas na mesma conexão TCP, sem o overhead de abrir conexão nova por requisição (problema clássico do HTTP/1.1 usado pelo REST tradicional) — é a mesma razão técnica por trás do resultado de latência sob rede ruim que medimos na seção 2.
+- **Serialização binária (Protobuf)**: menor payload e menor custo de CPU para serializar/desserializar do que parsing de texto JSON — a mesma razão por trás da redução de ~55% de payload que medimos na seção 3.
+- **Contrato fortemente tipado**: o `.proto` funciona como um contrato verificado em tempo de build, reduzindo bugs de integração entre serviços (campo renomeado, tipo errado) que só apareceriam em runtime com JSON — isso é um custo operacional indireto (menos incidentes, menos retrabalho) que não conseguimos medir numa POC de curto prazo, mas é amplamente citado por times que adotam gRPC internamente.
+- **Streaming nativo** (não testado nesta POC): gRPC suporta streaming bidirecional nativamente, o que abre espaço para otimizações futuras (ex: enviar histórico de vendas conforme calculado, em vez de esperar tudo pronto) — algo que REST não faz sem soluções alternativas (WebSockets, long polling).
+
+### Empresas que usam gRPC em produção (fontes públicas)
+
+| Empresa | Uso documentado | Fonte |
+|---|---|---|
+| **Google** | Criador do gRPC (evolução do framework interno "Stubby"), usa internamente em grande escala | [About gRPC](https://grpc.io/about/) |
+| **Square (Block)** | Substituiu solução de RPC própria por gRPC — citam performance comprovada e suporte multiplataforma como motivadores | [About gRPC — case study](https://grpc.io/about/), [Square Engineering Blog](https://medium.com/square-corner-blog/grpc-cross-platform-open-source-rpc-over-http-2-56c03b5a0173) |
+| **Netflix** | Usa Protobuf/gRPC no design de APIs internas (ex: uso de Protobuf FieldMask para otimizar respostas parciais) | [Netflix TechBlog — Practical API Design at Netflix, Part 1](https://netflixtechblog.com/practical-api-design-at-netflix-part-1-using-protobuf-fieldmask-35cfdc606518) |
+| **Uber** | Construiu um gateway de API baseado em gRPC (sobre Envoy) para tráfego entre os apps e os serviços de back-end | [Uber Engineering — The Architecture of Uber's API Gateway](https://www.uber.com/blog/architecture-api-gateway/) |
+| **Cloudflare, Datadog, Coinbase, DoorDash, Salesforce, Expedia Group, GIPHY, Toast** | Casos de adoção documentados oficialmente pelo próprio projeto gRPC (CNCF) | [gRPC Showcase](https://grpc.io/showcase/) |
+
+Outros exemplos amplamente conhecidos e documentados na própria infraestrutura das ferramentas (não citados aqui via artigo dedicado, mas de conhecimento público/técnico consolidado): **etcd** (o "banco de dados" de configuração por trás de todo cluster Kubernetes expõe sua API v3 via gRPC) e **containerd** (o runtime de containers usado pelo Docker/Kubernetes expõe sua API via gRPC).
+
+o argumento aqui não é "essas empresas são iguais à nossa", é que gRPC **não é uma tecnologia experimental ou de nicho** — é usada em produção, em escala, por empresas de tecnologia com times de performance dedicados (Google, Netflix, Uber, Square), o que reduz o risco percebido de adoção. Vale complementar essa lista com uma busca própria por casos do mesmo setor/porte da empresa, se existirem, para tornar o argumento ainda mais próximo da realidade do time.

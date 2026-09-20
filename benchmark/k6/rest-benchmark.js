@@ -19,6 +19,7 @@ export const options = {
   insecureSkipTLSVerify: true,
   vus: Number(__ENV.VUS || 20),
   duration: __ENV.DURATION || '30s',
+  gracefulStop: '90s',
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
 
@@ -30,6 +31,7 @@ export default function () {
   const url = `${BASE_URL}/stores/${storeId}/annual-history?${query}`;
   const res = http.get(url, {
     headers: { 'X-Api-Key': API_KEY },
+    timeout: '90s',
   });
   check(res, {
     'status is 200': (r) => r.status === 200,

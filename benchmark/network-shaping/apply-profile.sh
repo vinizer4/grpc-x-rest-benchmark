@@ -16,21 +16,27 @@ else
   CONTAINERS=(grpc-x-rest-benchmark-api-gateway-sim-1 grpc-x-rest-benchmark-alb-grpc-sim-1)
 fi
 
+# Fixed delay (no jitter, no loss): on Docker Desktop's virtualized network,
+# netem's jitter/loss reordering caused pathological TCP retransmit stalls
+# (single 3MB requests taking 80s+) wildly disproportionate to what real
+# cross-region conditions would cause. A fixed delay still captures the
+# latency-per-round-trip effect these profiles exist to demonstrate, without
+# that artifact.
 case "$PROFILE" in
   baseline)
     NETEM_ARGS=""
     ;;
   same-az)
-    # ~0.5ms delay, minimal jitter: two pods in the same AZ.
-    NETEM_ARGS="delay 0.5ms 0.1ms distribution normal"
+    # ~0.5ms: two pods in the same AZ.
+    NETEM_ARGS="delay 0.5ms"
     ;;
   cross-az)
-    # ~1-2ms delay, small jitter: two pods in different AZs, same region.
-    NETEM_ARGS="delay 1.5ms 0.5ms distribution normal"
+    # ~1.5ms: two pods in different AZs, same region.
+    NETEM_ARGS="delay 1.5ms"
     ;;
   cross-region)
-    # ~50-150ms delay, larger jitter, small packet loss: cross-region traffic.
-    NETEM_ARGS="delay 100ms 20ms distribution normal loss 0.05%"
+    # ~100ms: cross-region traffic.
+    NETEM_ARGS="delay 100ms"
     ;;
   *)
     echo "Unknown profile: $PROFILE (expected baseline|same-az|cross-az|cross-region)" >&2

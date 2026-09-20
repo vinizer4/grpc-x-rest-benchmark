@@ -9,6 +9,10 @@ plugins {
     id("com.google.protobuf") version "0.10.0"
 }
 
+springBoot {
+    mainClass.set("com.benchmark.sales.grpc.SalesGrpcApplicationKt")
+}
+
 dependencies {
     implementation(platform("org.springframework.grpc:spring-grpc-dependencies:$springGrpcVersion"))
     implementation(project(":sales-domain"))
@@ -41,4 +45,11 @@ protobuf {
             }
         }
     }
+}
+
+tasks.register<JavaExec>("payloadSize") {
+    group = "benchmark"
+    description = "Compares REST (JSON) vs gRPC (Protobuf) on-wire payload size for the same query."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.benchmark.sales.grpc.tools.PayloadSizeToolKt")
 }

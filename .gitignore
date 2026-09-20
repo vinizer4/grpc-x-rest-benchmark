@@ -13,3 +13,6 @@ certs/sales-service-rest/
 certs/sales-service-grpc/
 certs/api-gateway-sim/
 certs/alb-grpc-sim/
+
+benchmark/results/*.json
+benchmark/results/*.csv

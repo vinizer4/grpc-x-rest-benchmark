@@ -104,11 +104,25 @@ Esta é uma estimativa de ordem de grandeza baseada nos números medidos, não u
 - **Egress para a internet** (cliente externo consumindo a API): referência pública AWS ~US$ 0,09/GB (após os primeiros 100GB/mês gratuitos).
 - **Tráfego cross-AZ/cross-region** entre serviços internos: referência pública AWS ~US$ 0,01-0,02/GB.
 
-Exemplo ilustrativo: se este endpoint específico (histórico anual de loja) transferir hoje, digamos, **1TB/mês** de payload de resposta, uma redução de 55% economizaria aproximadamente:
-- ~US$ 49/mês se for majoritariamente egress para internet (1TB × 0,55 × US$0,09/GB ≈ US$50)
-- ~US$ 6-11/mês se for majoritariamente tráfego interno cross-AZ/region
+### Simulação: 4.000 lojas consultando o endpoint 1x/dia
 
-Para times com volumes maiores (dezenas de TB/mês em endpoints de alto tráfego), esse número escala linearmente e passa a ser uma economia relevante — mas para um único endpoint de baixo/médio volume, o efeito no custo de infraestrutura provavelmente é pequeno em termos absolutos.
+Para dar uma noção concreta de escala, simulamos (só matemática sobre os bytes já medidos nesta POC — não rodamos a aplicação com 4.000 lojas) o cenário de **4.000 lojas chamando o endpoint de histórico anual (12 meses) uma vez por dia cada**, usando o tamanho de payload real medido na seção 3 (13,1 MB JSON / 5,9 MB Protobuf por chamada):
+
+| | REST (JSON) | gRPC (Protobuf) | Redução |
+|---|---|---|---|
+| Volume por dia | 52,5 GB | 23,7 GB | 54,8% |
+| Volume por mês (30 dias) | 1.574 GB (~1,54 TB) | 712 GB (~0,70 TB) | 54,8% |
+| Volume por ano | 18,9 TB | 8,5 TB | 54,8% |
+| Custo mensal estimado* | US$ 142 | US$ 64 | **US$ 78/mês** |
+| Custo anual estimado* | US$ 1.700 | US$ 769 | **US$ 931/ano** |
+
+*\*Referência AWS de US$0,09/GB para egress à internet — se o tráfego for majoritariamente interno (cross-AZ/region, ~US$0,015/GB), os valores caem para ~US$24/US$11 por mês (~US$155/ano de economia), mas a redução percentual (54,8%) é a mesma independentemente da tarifa usada.*
+
+![Projeção de custo com 4.000 lojas/dia](images/cost-projection-4000-stores.png)
+
+**Importante — isto é uma extrapolação linear sobre o payload atual da POC, não uma previsão de produção.** O sistema real do time tem campos adicionais que não estão nesta POC (curva de vendas, projeção de vendas, itens desativados, entre outros), então o payload real de produção deve ser **significativamente maior** do que os ~13MB medidos aqui. Isso não invalida a conclusão — pelo contrário: como a redução do Protobuf é uma **porcentagem** do tamanho do payload (não um valor fixo), um payload de produção maior tende a manter (ou até ampliar, se os campos adicionais também tiverem muita repetição de string) essa mesma proporção de ~55%, e os valores em GB/US$ escalariam para cima proporcionalmente. Antes de decidir, vale medir o tamanho real do payload de produção e substituir os 13,1MB/5,9MB desta tabela pelos valores reais.
+
+Para times com volumes ainda maiores (dezenas de milhares de lojas, múltiplas chamadas/dia), esse número escala linearmente e a economia absoluta cresce na mesma proporção.
 
 **Custo de compute (menos claro):** no cenário médio (mais representativo do tráfego real), o gRPC sustentou **20-29% mais throughput** com a mesma CPU/memória — em tese, isso poderia permitir atender a mesma carga com menos réplicas do serviço. No cenário grande, porém, os dois protocolos saturam igualmente CPU e memória (seção 4), então não há economia de compute nesse caso — o gargalo lá é o volume de dados por resposta, não o protocolo.
 
@@ -128,6 +142,21 @@ Para times com volumes maiores (dezenas de TB/mês em endpoints de alto tráfego
 - A troca do componente de borda (API Gateway → ALB) para suportar gRPC é uma decisão de arquitetura de plataforma, não só do time de aplicação — precisa ser alinhada previamente.
 
 **Recomendação:** os dados suportam uma adoção **seletiva**, não uma migração geral. Vale considerar gRPC especificamente para os endpoints internos (serviço-a-serviço, não expostos a browser) de maior volume de chamadas concorrentes e/ou maior sensibilidade a latência de rede — não para toda a superfície de API do time. Antes de migrar algo em produção, validar: (1) o volume real de tráfego do endpoint candidato, para confirmar se a economia de egress é significativa; (2) se a equipe de plataforma já tem (ou está dispostas a montar) o caminho ALB/observabilidade para gRPC.
+
+---
+
+## Resumo rápido
+
+| | REST (JSON) | gRPC (Protobuf) | Ganho do gRPC |
+|---|---|---|---|
+| Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | **-71%** |
+| Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | **+29%** |
+| Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | **-55%** |
+| Custo de egress projetado (4.000 lojas/dia, anual) | US$ 1.700 | US$ 769 | **-55% (US$ 931/ano)** |
+
+![Resumo de desempenho e custo](images/final-summary.png)
+
+O ganho do gRPC é consistente nas duas frentes: **desempenho** (mais throughput, muito menos degradação de latência sob rede ruim) e **custo** (payload e egress ~55% menores). A ressalva fica pelos trade-offs operacionais da seção 5 — debugabilidade, geração de stubs, e a troca de componente de borda (API Gateway → ALB) — que são custos de adoção reais e não aparecem em nenhum desses gráficos.
 
 ---
 

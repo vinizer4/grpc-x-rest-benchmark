@@ -89,6 +89,16 @@ curl --cacert certs/ca/ca-cert.pem \
 - `storeId`: 1 a 50 (ou o valor de `STORE_COUNT` usado no `datagen`)
 - `startDate`/`endDate`: `YYYY-MM-DD`
 
+### Testando via Postman
+
+1. **New → HTTP Request**, método `GET`
+2. URL: `https://localhost:8443/stores/1/annual-history?startDate=2025-09-20&endDate=2026-09-20`
+3. Aba **Headers**: adicione `X-Api-Key: benchmark-poc-api-key` (sem isso o gateway responde `401`)
+4. Como o certificado é self-signed, desative a verificação de TLS em Settings → General → **"SSL certificate verification"** (ou importe `certs/ca/ca-cert.pem` em Settings → Certificates → CA Certificates, apontando para `localhost`)
+5. **Send**
+
+Para o intervalo de 12 meses a resposta é grande (~13MB); se preferir uma resposta menor para inspecionar no Postman, use um intervalo de poucos meses (ex: `startDate=2026-06-20`).
+
 ## Acessando o endpoint gRPC
 
 Vai por `alb-grpc-sim` (porta `9443`, TLS, sem autenticação — ver seção 5 do relatório sobre essa assimetria). Use `grpcurl`:

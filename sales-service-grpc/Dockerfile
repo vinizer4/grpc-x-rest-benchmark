@@ -10,5 +10,6 @@ RUN ./gradlew :sales-service-grpc:bootJar --no-daemon -x test
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /workspace/sales-service-grpc/build/libs/*.jar app.jar
+COPY certs/sales-service-grpc /certs/sales-service-grpc
 EXPOSE 9090
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

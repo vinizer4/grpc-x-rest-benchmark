@@ -45,6 +45,7 @@ services:
       DB_PASSWORD: sales
       SERVER_PORT: 8081
       GRPC_SERVER_PORT: 9090
+      SSL_ENABLED: "true"
     ports:
       - "8081:8081"
       - "9090:9090"

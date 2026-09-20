@@ -214,7 +214,7 @@ O ganho do gRPC é consistente em três frentes: **desempenho** (mais throughput
 
 ## 9. Visão de mercado: gRPC além desta POC
 
-Tudo até aqui veio dos nossos testes. Esta seção é diferente: não é sobre a POC, é sobre **o que a indústria já documentou publicamente** sobre gRPC em produção — para dar mais peso à conversa com a gestora, mostrando que os ganhos que medimos aqui não são um caso isolado.
+Tudo até aqui veio dos nossos testes. Esta seção é diferente: não é sobre a POC, é sobre **o que a indústria já documentou publicamente** sobre gRPC em produção.
 
 ### Por que gRPC tende a ganhar em performance e custo operacional, de forma geral
 

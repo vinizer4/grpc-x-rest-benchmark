@@ -24,10 +24,20 @@ client → alb-grpc-sim     (nginx :9443, TLS)            → sales-service-grpc
 
 - Docker e Docker Compose
 - `openssl` e `keytool` (JDK) — para gerar os certificados TLS locais
-- Opcional, só para testar/rodar benchmarks manualmente: `curl`, [`grpcurl`](https://github.com/fullstorydev/grpcurl), [`k6`](https://k6.io/), [`ghz`](https://ghz.sh/)
+- [`curl`](https://curl.se/) — para chamar o endpoint REST (já vem instalado no macOS/Linux na maioria dos casos)
+- [`grpcurl`](https://github.com/fullstorydev/grpcurl) — para chamar o endpoint gRPC pela linha de comando
 
 ```bash
-brew install grpcurl k6 ghz   # macOS
+brew install curl grpcurl   # macOS
+```
+
+Opcional, só para rodar os benchmarks de carga (seção [Rodando os benchmarks](#rodando-os-benchmarks)):
+
+- [`k6`](https://k6.io/) — carga no endpoint REST
+- [`ghz`](https://ghz.sh/) — carga no endpoint gRPC
+
+```bash
+brew install k6 ghz   # macOS
 ```
 
 ## Subindo o ambiente

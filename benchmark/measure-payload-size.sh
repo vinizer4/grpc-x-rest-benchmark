@@ -32,6 +32,20 @@ fi
 
 echo "Cenario: $SCENARIO (produto $PRODUTO_ID, $DATA_INICIO -> $DATA_FIM)"
 
-GRPC_HOST="$GRPC_HOST" REST_BASE_URL="$REST_HOST" API_KEY="$API_KEY" PRODUTO_ID="$PRODUTO_ID" \
+OUTPUT="$(GRPC_HOST="$GRPC_HOST" REST_BASE_URL="$REST_HOST" API_KEY="$API_KEY" PRODUTO_ID="$PRODUTO_ID" \
   DATA_INICIO="$DATA_INICIO" DATA_FIM="$DATA_FIM" CACERT="$CACERT" \
-  "$ROOT_DIR/gradlew" -p "$ROOT_DIR" :sales-service-grpc:payloadSize --console=plain -q
+  "$ROOT_DIR/gradlew" -p "$ROOT_DIR" :sales-service-grpc:payloadSize --console=plain -q)"
+
+echo "$OUTPUT"
+
+JSON_BYTES="$(echo "$OUTPUT" | grep 'REST (JSON) bytes:' | grep -oE '[0-9]+')"
+PROTO_BYTES="$(echo "$OUTPUT" | grep 'gRPC (Protobuf) bytes:' | grep -oE '[0-9]+')"
+REDUCAO="$(echo "$OUTPUT" | grep 'Reducao' | grep -oE '[0-9.]+')"
+
+CSV_FILE="$ROOT_DIR/benchmark/results/payload-sizes.csv"
+mkdir -p "$(dirname "$CSV_FILE")"
+if [ ! -f "$CSV_FILE" ]; then
+  echo "scenario,produto_id,data_inicio,data_fim,json_bytes,proto_bytes,reducao_pct" > "$CSV_FILE"
+fi
+echo "$SCENARIO,$PRODUTO_ID,$DATA_INICIO,$DATA_FIM,$JSON_BYTES,$PROTO_BYTES,$REDUCAO" >> "$CSV_FILE"
+echo "Registrado em $CSV_FILE"

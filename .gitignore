@@ -16,3 +16,5 @@ certs/alb-grpc-sim/
 
 benchmark/results/*.json
 benchmark/results/*.csv
+benchmark/results/summary.md
+benchmark/results/charts/

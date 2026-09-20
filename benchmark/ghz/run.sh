@@ -13,6 +13,7 @@ CACERT="${CACERT:-$ROOT_DIR/certs/ca/ca-cert.pem}"
 CONCURRENCY="${CONCURRENCY:-20}"
 DURATION="${DURATION:-30s}"
 PRODUTO_ID="${PRODUTO_ID:-311}"
+PROFILE="${PROFILE:-baseline}"
 OUT_DIR="${OUT_DIR:-$ROOT_DIR/benchmark/results}"
 
 case "$SCENARIO" in
@@ -39,7 +40,7 @@ ghz --cacert "$CACERT" \
   -z "$DURATION" \
   -d "{\"id_produto\": $PRODUTO_ID, \"data_inicio\": \"$DATA_INICIO\", \"data_fim\": \"$DATA_FIM\"}" \
   -O json \
-  -o "$OUT_DIR/grpc-${SCENARIO}.json" \
+  -o "$OUT_DIR/grpc-${SCENARIO}-${PROFILE}.json" \
   "$HOST"
 
-echo "Results written to $OUT_DIR/grpc-${SCENARIO}.json"
+echo "Results written to $OUT_DIR/grpc-${SCENARIO}-${PROFILE}.json"

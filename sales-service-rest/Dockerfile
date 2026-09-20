@@ -9,5 +9,6 @@ RUN ./gradlew :sales-service-rest:bootJar --no-daemon -x test
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /workspace/sales-service-rest/build/libs/*.jar app.jar
+COPY certs/sales-service-rest /certs/sales-service-rest
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

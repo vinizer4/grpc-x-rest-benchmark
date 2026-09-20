@@ -26,6 +26,7 @@ services:
       DB_USER: sales
       DB_PASSWORD: sales
       SERVER_PORT: 8080
+      SSL_ENABLED: "true"
     ports:
       - "8080:8080"
     depends_on:

@@ -6,3 +6,10 @@ out/
 .DS_Store
 *.iml
 .idea/
+
+certs/ca/
+certs/truststore.p12
+certs/sales-service-rest/
+certs/sales-service-grpc/
+certs/api-gateway-sim/
+certs/alb-grpc-sim/

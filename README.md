@@ -1,5 +1,7 @@
 # grpc-x-rest-benchmark
 
+🌐 [Read this in English](README.en.md)
+
 POC comparando desempenho e custo entre REST (JSON) e gRPC (Protobuf) para o mesmo caso de uso: consulta do histórico anual de uma loja (vendas mensais agregadas + promoções). Os dois serviços compartilham a mesma lógica de domínio (`sales-domain`) e ficam atrás de gateways que simulam a topologia real da AWS — API Gateway na frente do REST, ALB na frente do gRPC (API Gateway não suporta proxy gRPC nativamente).
 
 Relatório completo com resultados, gráficos e análise de custo: [`report/RESULTS.md`](report/RESULTS.md).

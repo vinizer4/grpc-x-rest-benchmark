@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sales
+      POSTGRES_USER: sales
+      POSTGRES_PASSWORD: sales
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sales -d sales"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  sales-service-rest:
+    build:
+      context: .
+      dockerfile: sales-service-rest/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sales
+      DB_USER: sales
+      DB_PASSWORD: sales
+      SERVER_PORT: 8080
+      SSL_ENABLED: "true"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"
+    expose:
+      - "8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  sales-service-grpc:
+    build:
+      context: .
+      dockerfile: sales-service-grpc/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sales
+      DB_USER: sales
+      DB_PASSWORD: sales
+      SERVER_PORT: 8081
+      GRPC_SERVER_PORT: 9090
+      SSL_ENABLED: "true"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"
+    expose:
+      - "9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Simulates AWS API Gateway in front of the REST service: TLS termination,
+  # API-key auth, and rate limiting. See gateway/api-gateway-sim/nginx.conf.
+  api-gateway-sim:
+    build:
+      context: .
+      dockerfile: gateway/api-gateway-sim/Dockerfile
+    restart: on-failure
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8443:8443"
+    depends_on:
+      - sales-service-rest
+
+  # Simulates an AWS ALB with a gRPC target group in front of the gRPC service
+  # (API Gateway cannot proxy gRPC). See gateway/alb-grpc-sim/nginx.conf.
+  alb-grpc-sim:
+    build:
+      context: .
+      dockerfile: gateway/alb-grpc-sim/Dockerfile
+    restart: on-failure
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "9443:8443"
+    depends_on:
+      - sales-service-grpc
+
+  # Run after sales-service-rest or sales-service-grpc has started at least once
+  # (Flyway creates the schema on their startup; datagen only inserts into it).
+  datagen:
+    profiles: ["datagen"]
+    build:
+      context: .
+      dockerfile: datagen/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sales
+      DB_USER: sales
+      DB_PASSWORD: sales
+      STORE_COUNT: 50
+      TOTAL_PRODUCTS: 5000
+      MONTHS: 12
+      PROMOTIONS_PER_MONTH: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

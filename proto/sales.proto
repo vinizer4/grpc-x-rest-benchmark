@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package com.benchmark.sales.grpc;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.benchmark.sales.grpc";
+option java_outer_classname = "SalesProto";
+
+message MonthlySale {
+  int32 store_id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  string category = 4;
+  google.protobuf.Timestamp year_month = 5;
+  int32 quantity_sold = 6;
+  double total_value = 7;
+  string region = 8;
+  string store_name = 9;
+}
+
+message Promotion {
+  string promotion_id = 1;
+  int32 store_id = 2;
+  google.protobuf.Timestamp year_month = 3;
+  string promotion_name = 4;
+  double discount_percentage = 5;
+  google.protobuf.Timestamp start_date = 6;
+  google.protobuf.Timestamp end_date = 7;
+}
+
+message GetStoreAnnualHistoryRequest {
+  int32 store_id = 1;
+  google.protobuf.Timestamp start_date = 2;
+  google.protobuf.Timestamp end_date = 3;
+}
+
+message GetStoreAnnualHistoryResponse {
+  repeated MonthlySale sales = 1;
+  repeated Promotion promotions = 2;
+  int64 total_sales_records = 3;
+  int64 total_promotion_records = 4;
+}
+
+service SalesService {
+  rpc GetStoreAnnualHistory(GetStoreAnnualHistoryRequest) returns (GetStoreAnnualHistoryResponse);
+}

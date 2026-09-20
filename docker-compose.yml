@@ -95,7 +95,7 @@ services:
       - sales-service-grpc
 
   # Run after sales-service-rest or sales-service-grpc has started at least once
-  # (Flyway creates the vendas table on their startup; datagen only inserts into it).
+  # (Flyway creates the schema on their startup; datagen only inserts into it).
   datagen:
     profiles: ["datagen"]
     build:
@@ -107,7 +107,10 @@ services:
       DB_NAME: sales
       DB_USER: sales
       DB_PASSWORD: sales
-      TOTAL_REGISTROS: 8000000
+      STORE_COUNT: 50
+      TOTAL_PRODUCTS: 5000
+      MONTHS: 12
+      PROMOTIONS_PER_MONTH: 5
     depends_on:
       postgres:
         condition: service_healthy

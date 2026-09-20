@@ -1,6 +1,6 @@
 package com.benchmark.sales.grpc.tools
 
-import com.benchmark.sales.grpc.ConsultarVendasPorProdutoRequest
+import com.benchmark.sales.grpc.GetStoreAnnualHistoryRequest
 import com.benchmark.sales.grpc.SalesServiceGrpc
 import com.benchmark.sales.grpc.toProtoTimestamp
 import io.grpc.TlsChannelCredentials
@@ -11,7 +11,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.security.cert.CertificateFactory
-import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 
@@ -25,22 +26,22 @@ fun main() {
     val grpcHost = env("GRPC_HOST", "localhost:9443")
     val restBaseUrl = env("REST_BASE_URL", "https://localhost:8443")
     val apiKey = env("API_KEY", "benchmark-poc-api-key")
-    val produtoId = env("PRODUTO_ID", "311").toLong()
-    val dataInicio = Instant.parse(env("DATA_INICIO", Instant.now().minusSeconds(380L * 86400).toString()))
-    val dataFim = Instant.parse(env("DATA_FIM", Instant.now().toString()))
+    val storeId = env("STORE_ID", "1").toInt()
+    val startDate = LocalDate.parse(env("START_DATE", LocalDate.now().minusMonths(12).toString()))
+    val endDate = LocalDate.parse(env("END_DATE", LocalDate.now().toString()))
     val cacertPath = env("CACERT", "certs/ca/ca-cert.pem")
 
     val sslContext = trustingSslContext(File(cacertPath))
 
-    val jsonBytes = fetchRestJsonBytes(restBaseUrl, apiKey, produtoId, dataInicio, dataFim, sslContext)
-    val protoBytes = fetchGrpcProtoBytes(grpcHost, cacertPath, produtoId, dataInicio, dataFim)
+    val jsonBytes = fetchRestJsonBytes(restBaseUrl, apiKey, storeId, startDate, endDate, sslContext)
+    val protoBytes = fetchGrpcProtoBytes(grpcHost, cacertPath, storeId, startDate, endDate)
 
-    println("Produto: $produtoId | Periodo: $dataInicio -> $dataFim")
+    println("Store: $storeId | Period: $startDate -> $endDate")
     println("REST (JSON) bytes:      $jsonBytes")
     println("gRPC (Protobuf) bytes:  $protoBytes")
     if (jsonBytes > 0) {
-        val reducao = 100.0 * (1.0 - protoBytes.toDouble() / jsonBytes.toDouble())
-        println("Reducao Protobuf vs JSON: %.1f%%".format(reducao))
+        val reduction = 100.0 * (1.0 - protoBytes.toDouble() / jsonBytes.toDouble())
+        println("Protobuf vs JSON reduction: %.1f%%".format(reduction))
     }
 }
 
@@ -49,12 +50,12 @@ private fun env(name: String, default: String): String = System.getenv(name) ?: 
 private fun fetchRestJsonBytes(
     baseUrl: String,
     apiKey: String,
-    produtoId: Long,
-    dataInicio: Instant,
-    dataFim: Instant,
+    storeId: Int,
+    startDate: LocalDate,
+    endDate: LocalDate,
     sslContext: SSLContext,
 ): Int {
-    val url = "$baseUrl/produtos/$produtoId/vendas?dataInicio=$dataInicio&dataFim=$dataFim"
+    val url = "$baseUrl/stores/$storeId/annual-history?startDate=$startDate&endDate=$endDate"
     val client = HttpClient.newBuilder().sslContext(sslContext).build()
     val request = HttpRequest.newBuilder(URI.create(url))
         .header("X-Api-Key", apiKey)
@@ -68,9 +69,9 @@ private fun fetchRestJsonBytes(
 private fun fetchGrpcProtoBytes(
     hostAndPort: String,
     cacertPath: String,
-    produtoId: Long,
-    dataInicio: Instant,
-    dataFim: Instant,
+    storeId: Int,
+    startDate: LocalDate,
+    endDate: LocalDate,
 ): Int {
     val (host, port) = hostAndPort.split(":").let { it[0] to it[1].toInt() }
     val credentials = TlsChannelCredentials.newBuilder()
@@ -79,12 +80,12 @@ private fun fetchGrpcProtoBytes(
     val channel = NettyChannelBuilder.forAddress(host, port, credentials).build()
     try {
         val stub = SalesServiceGrpc.newBlockingStub(channel)
-        val request = ConsultarVendasPorProdutoRequest.newBuilder()
-            .setIdProduto(produtoId)
-            .setDataInicio(dataInicio.toProtoTimestamp())
-            .setDataFim(dataFim.toProtoTimestamp())
+        val request = GetStoreAnnualHistoryRequest.newBuilder()
+            .setStoreId(storeId)
+            .setStartDate(startDate.atStartOfDay(ZoneOffset.UTC).toInstant().toProtoTimestamp())
+            .setEndDate(endDate.atStartOfDay(ZoneOffset.UTC).toInstant().toProtoTimestamp())
             .build()
-        val response = stub.consultarVendasPorProduto(request)
+        val response = stub.getStoreAnnualHistory(request)
         return response.serializedSize
     } finally {
         channel.shutdownNow()

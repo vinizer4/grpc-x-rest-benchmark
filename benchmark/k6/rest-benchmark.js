@@ -3,17 +3,17 @@ import { check } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'https://localhost:8443';
 const API_KEY = __ENV.API_KEY || 'benchmark-poc-api-key';
-const PRODUTO_ID = __ENV.PRODUTO_ID || '311';
-const SCENARIO = __ENV.SCENARIO || 'large'; // 'medium' (~1 month) or 'large' (~12 months)
+const STORE_COUNT = Number(__ENV.STORE_COUNT || 50);
+const SCENARIO = __ENV.SCENARIO || 'large'; // 'medium' (~3 months) or 'large' (~12 months)
 const PROFILE = __ENV.PROFILE || 'baseline'; // baseline|same-az|cross-az|cross-region, for output naming only
 
-const DIAS_ATRAS = SCENARIO === 'medium' ? 30 : 380;
-const dataFim = new Date();
-const dataInicio = new Date(dataFim.getTime() - DIAS_ATRAS * 24 * 60 * 60 * 1000);
+const MONTHS_BACK = SCENARIO === 'medium' ? 3 : 12;
+const endDate = new Date();
+const startDate = new Date(endDate);
+startDate.setMonth(startDate.getMonth() - MONTHS_BACK);
 
-const url =
-  `${BASE_URL}/produtos/${PRODUTO_ID}/vendas` +
-  `?dataInicio=${dataInicio.toISOString()}&dataFim=${dataFim.toISOString()}`;
+const toDateOnly = (d) => d.toISOString().slice(0, 10);
+const query = `startDate=${toDateOnly(startDate)}&endDate=${toDateOnly(endDate)}`;
 
 export const options = {
   insecureSkipTLSVerify: true,
@@ -22,7 +22,12 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
 
+// Each request targets a different, randomly picked store, matching how
+// production traffic actually spreads across stores rather than hammering
+// a single one.
 export default function () {
+  const storeId = 1 + Math.floor(Math.random() * STORE_COUNT);
+  const url = `${BASE_URL}/stores/${storeId}/annual-history?${query}`;
   const res = http.get(url, {
     headers: { 'X-Api-Key': API_KEY },
   });

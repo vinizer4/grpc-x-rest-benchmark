@@ -87,11 +87,11 @@ def format_num(value, digits=1):
 
 
 def write_markdown(latency_rows, payload_rows, path):
-    lines = ["# Resumo do benchmark REST vs gRPC", ""]
+    lines = ["# REST vs gRPC benchmark summary", ""]
 
-    lines.append("## Latencia e throughput")
+    lines.append("## Latency and throughput")
     lines.append("")
-    lines.append("| Protocolo | Cenario | Perfil de rede | p50 (ms) | p95 (ms) | p99 (ms) | Throughput (req/s) | Sucesso |")
+    lines.append("| Protocol | Scenario | Network profile | p50 (ms) | p95 (ms) | p99 (ms) | Throughput (req/s) | Success |")
     lines.append("|---|---|---|---|---|---|---|---|")
     for row in latency_rows:
         lines.append(
@@ -101,14 +101,14 @@ def write_markdown(latency_rows, payload_rows, path):
         )
 
     lines.append("")
-    lines.append("## Tamanho de payload (bytes on-wire, JSON vs Protobuf)")
+    lines.append("## Payload size (on-wire bytes, JSON vs Protobuf)")
     lines.append("")
-    lines.append("| Cenario | Produto | JSON (bytes) | Protobuf (bytes) | Reducao |")
+    lines.append("| Scenario | Store | JSON (bytes) | Protobuf (bytes) | Reduction |")
     lines.append("|---|---|---|---|---|")
     for row in payload_rows:
         lines.append(
-            f"| {row['scenario']} | {row['produto_id']} | {row['json_bytes']} "
-            f"| {row['proto_bytes']} | {row['reducao_pct']}% |"
+            f"| {row['scenario']} | {row['store_id']} | {row['json_bytes']} "
+            f"| {row['proto_bytes']} | {row['reduction_pct']}% |"
         )
 
     with open(path, "w") as f:
@@ -121,8 +121,8 @@ def maybe_write_charts(latency_rows, payload_rows, charts_dir):
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
-        print("matplotlib nao instalado - pulando geracao de graficos (tabelas/CSV ja foram gerados).")
-        print("Para gerar graficos: pip install matplotlib")
+        print("matplotlib not installed - skipping chart generation (tables/CSV were already written).")
+        print("To generate charts: pip install matplotlib")
         return
 
     os.makedirs(charts_dir, exist_ok=True)
@@ -137,8 +137,8 @@ def maybe_write_charts(latency_rows, payload_rows, charts_dir):
         p95_values = [by_protocol[p]["p95_ms"] or 0 for p in protocols]
         fig, ax = plt.subplots()
         ax.bar(protocols, p95_values)
-        ax.set_ylabel("p95 latencia (ms)")
-        ax.set_title(f"p95 latencia - {scenario} / {profile}")
+        ax.set_ylabel("p95 latency (ms)")
+        ax.set_title(f"p95 latency - {scenario} / {profile}")
         fig.savefig(os.path.join(charts_dir, f"latency-p95-{scenario}-{profile}.png"))
         plt.close(fig)
 
@@ -154,12 +154,12 @@ def maybe_write_charts(latency_rows, payload_rows, charts_dir):
         ax.set_xticks(list(x))
         ax.set_xticklabels(scenarios)
         ax.set_ylabel("bytes")
-        ax.set_title("Tamanho de payload: JSON vs Protobuf")
+        ax.set_title("Payload size: JSON vs Protobuf")
         ax.legend()
         fig.savefig(os.path.join(charts_dir, "payload-size.png"))
         plt.close(fig)
 
-    print(f"Graficos escritos em {charts_dir}")
+    print(f"Charts written to {charts_dir}")
 
 
 def main():
@@ -169,7 +169,7 @@ def main():
     payload_rows = collect_payload_sizes(results_dir)
 
     if not latency_rows and not payload_rows:
-        print(f"Nenhum resultado encontrado em {results_dir}. Rode os benchmarks (k6/ghz/measure-payload-size.sh) primeiro.")
+        print(f"No results found in {results_dir}. Run the benchmarks (k6/ghz/measure-payload-size.sh) first.")
         return
 
     write_csv(
@@ -180,7 +180,7 @@ def main():
     write_markdown(latency_rows, payload_rows, os.path.join(results_dir, "summary.md"))
     maybe_write_charts(latency_rows, payload_rows, os.path.join(results_dir, "charts"))
 
-    print(f"Resumo escrito em {os.path.join(results_dir, 'summary.md')} e summary-latency.csv")
+    print(f"Summary written to {os.path.join(results_dir, 'summary.md')} and summary-latency.csv")
 
 
 if __name__ == "__main__":

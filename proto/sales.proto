@@ -8,39 +8,41 @@ option java_multiple_files = true;
 option java_package = "com.benchmark.sales.grpc";
 option java_outer_classname = "SalesProto";
 
-message Venda {
-  string id_venda = 1;
-  int64 id_produto = 2;
-  string nome_produto = 3;
-  string categoria = 4;
-  int32 quantidade = 5;
-  double valor_unitario = 6;
-  double valor_total = 7;
-  google.protobuf.Timestamp data_venda = 8;
-  int32 id_loja = 9;
-  string nome_loja = 10;
-  string regiao = 11;
-  string forma_pagamento = 12;
+message MonthlySale {
+  int32 store_id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  string category = 4;
+  google.protobuf.Timestamp year_month = 5;
+  int32 quantity_sold = 6;
+  double total_value = 7;
+  string region = 8;
+  string store_name = 9;
 }
 
-message ConsultarVendasPorProdutoRequest {
-  int64 id_produto = 1;
-  google.protobuf.Timestamp data_inicio = 2;
-  google.protobuf.Timestamp data_fim = 3;
+message Promotion {
+  string promotion_id = 1;
+  int32 store_id = 2;
+  google.protobuf.Timestamp year_month = 3;
+  string promotion_name = 4;
+  double discount_percentage = 5;
+  google.protobuf.Timestamp start_date = 6;
+  google.protobuf.Timestamp end_date = 7;
 }
 
-message ConsultarVendasPorLojaRequest {
-  int32 id_loja = 1;
-  google.protobuf.Timestamp data_inicio = 2;
-  google.protobuf.Timestamp data_fim = 3;
+message GetStoreAnnualHistoryRequest {
+  int32 store_id = 1;
+  google.protobuf.Timestamp start_date = 2;
+  google.protobuf.Timestamp end_date = 3;
 }
 
-message ConsultarVendasResponse {
-  repeated Venda vendas = 1;
-  int64 total_registros = 2;
+message GetStoreAnnualHistoryResponse {
+  repeated MonthlySale sales = 1;
+  repeated Promotion promotions = 2;
+  int64 total_sales_records = 3;
+  int64 total_promotion_records = 4;
 }
 
 service SalesService {
-  rpc ConsultarVendasPorProduto(ConsultarVendasPorProdutoRequest) returns (ConsultarVendasResponse);
-  rpc ConsultarVendasPorLoja(ConsultarVendasPorLojaRequest) returns (ConsultarVendasResponse);
+  rpc GetStoreAnnualHistory(GetStoreAnnualHistoryRequest) returns (GetStoreAnnualHistoryResponse);
 }

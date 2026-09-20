@@ -97,6 +97,28 @@ grpcurl -cacert certs/ca/ca-cert.pem localhost:9443 list
 grpcurl -cacert certs/ca/ca-cert.pem localhost:9443 describe com.benchmark.sales.grpc.SalesService
 ```
 
+### Testando via Postman
+
+O Postman tem suporte nativo a gRPC (Postman **Desktop**, v9+ — não funciona no Postman Web). Como a reflection está habilitada, ele descobre o serviço sozinho, sem precisar importar o `.proto`:
+
+1. **New → gRPC Request**
+2. URL do servidor: `localhost:9443`
+3. Como o servidor usa TLS com certificado self-signed, ou:
+   - Settings → Certificates → **CA Certificates** → adicione `certs/ca/ca-cert.pem`, ou
+   - Settings → General → desative **"SSL certificate verification"** (mais simples, ok para uma POC local)
+4. Clique em **"Select a method"** — o Postman consulta a reflection do servidor e lista `com.benchmark.sales.grpc.SalesService/GetStoreAnnualHistory` automaticamente
+5. No corpo da mensagem, preencha:
+   ```json
+   {
+     "store_id": 1,
+     "start_date": "2025-09-20T00:00:00Z",
+     "end_date": "2026-09-20T00:00:00Z"
+   }
+   ```
+6. **Invoke**
+
+Para o cenário de 12 meses (~13MB REST / ~5,9MB Protobuf), a resposta é grande — se o Postman reclamar de tamanho, teste primeiro com um intervalo de datas menor (ex: 3 meses) antes de tentar o ano completo.
+
 ## Rodando os benchmarks
 
 ```bash

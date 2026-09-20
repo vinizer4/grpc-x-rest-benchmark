@@ -187,14 +187,16 @@ Você perguntou: e se isso for adotado no sistema todo, não só neste endpoint?
 
 ## Resumo rápido
 
-| | REST (JSON) | gRPC (Protobuf) | Ganho do gRPC |
-|---|---|---|---|
-| Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | **-71%** |
-| Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | **+29%** |
-| Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | **-55%** |
-| Custo total (egress+compute), 1 endpoint/ano | US$ 3.668 | US$ 2.343 | **-36% (US$ 1.325/ano)** |
-| Custo total (egress+compute), 20 endpoints/ano | US$ 73.361 | US$ 46.866 | **-36% (US$ 26.495/ano)** |
-| Pods necessários, 20 endpoints | 100 | 80 | **-20 pods** |
+> **Como ler a coluna "Variação"**: o sinal indica se o número **caiu** (−) ou **subiu** (+) do REST para o gRPC — não indica se é bom ou ruim. A coluna "Resultado" ao lado já diz isso de forma direta: em **todas** as linhas, o resultado é uma melhora do gRPC sobre o REST.
+
+| | REST (JSON) | gRPC (Protobuf) | Variação | Resultado |
+|---|---|---|---|---|
+| Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | -71% | ✅ gRPC 71% mais rápido |
+| Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | +29% | ✅ gRPC atende 29% mais requisições/s |
+| Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | -55% | ✅ gRPC transmite 55% menos dados |
+| Custo total (egress+compute), 1 endpoint/ano | US$ 3.668 | US$ 2.343 | -36% | ✅ gRPC custa US$ 1.325/ano a menos |
+| Custo total (egress+compute), 20 endpoints/ano | US$ 73.361 | US$ 46.866 | -36% | ✅ gRPC custa US$ 26.495/ano a menos |
+| Pods necessários, 20 endpoints | 100 | 80 | -20 pods | ✅ gRPC precisa de 20 pods a menos |
 
 ![Resumo de desempenho e custo](images/final-summary.png)
 
@@ -207,3 +209,30 @@ O ganho do gRPC é consistente em três frentes: **desempenho** (mais throughput
 - Os perfis de rede usam **delay fixo, sem jitter nem perda de pacote**. Testes iniciais com jitter (`delay 100ms 20ms`) e perda simulada (`loss 0.05%`) causaram travamentos de retransmissão TCP patológicos no ambiente virtualizado do Docker Desktop (uma única requisição de 3MB chegou a levar 80 segundos), desproporcionais ao que uma condição real de cross-region causaria. O delay fixo ainda captura o efeito de latência por round-trip que os perfis existem para demonstrar, sem esse artefato.
 - Os containers dos dois serviços rodam com `-XX:MaxRAMPercentage=75.0` explícito — o padrão da JVM (25% do limite do container) deixaria heap insuficiente (~256MB de um limite de 1GiB) para este endpoint, causando `OutOfMemoryError` em ambos os serviços independentemente do protocolo. Isso é uma configuração de produção real que qualquer pod Java em Kubernetes deveria ter, não um ajuste especial para favorecer um lado da comparação.
 - Todos os testes tiveram uma rodada de aquecimento (warm-up) antes da medição, para evitar que o custo de JIT warm-up/inicialização de pool de conexões distorça os primeiros números.
+
+---
+
+## 9. Visão de mercado: gRPC além desta POC
+
+Tudo até aqui veio dos nossos testes. Esta seção é diferente: não é sobre a POC, é sobre **o que a indústria já documentou publicamente** sobre gRPC em produção — para dar mais peso à conversa com a gestora, mostrando que os ganhos que medimos aqui não são um caso isolado.
+
+### Por que gRPC tende a ganhar em performance e custo operacional, de forma geral
+
+- **HTTP/2 multiplexado**: várias chamadas na mesma conexão TCP, sem o overhead de abrir conexão nova por requisição (problema clássico do HTTP/1.1 usado pelo REST tradicional) — é a mesma razão técnica por trás do resultado de latência sob rede ruim que medimos na seção 2.
+- **Serialização binária (Protobuf)**: menor payload e menor custo de CPU para serializar/desserializar do que parsing de texto JSON — a mesma razão por trás da redução de ~55% de payload que medimos na seção 3.
+- **Contrato fortemente tipado**: o `.proto` funciona como um contrato verificado em tempo de build, reduzindo bugs de integração entre serviços (campo renomeado, tipo errado) que só apareceriam em runtime com JSON — isso é um custo operacional indireto (menos incidentes, menos retrabalho) que não conseguimos medir numa POC de curto prazo, mas é amplamente citado por times que adotam gRPC internamente.
+- **Streaming nativo** (não testado nesta POC): gRPC suporta streaming bidirecional nativamente, o que abre espaço para otimizações futuras (ex: enviar histórico de vendas conforme calculado, em vez de esperar tudo pronto) — algo que REST não faz sem soluções alternativas (WebSockets, long polling).
+
+### Empresas que usam gRPC em produção (fontes públicas)
+
+| Empresa | Uso documentado | Fonte |
+|---|---|---|
+| **Google** | Criador do gRPC (evolução do framework interno "Stubby"), usa internamente em grande escala | [About gRPC](https://grpc.io/about/) |
+| **Square (Block)** | Substituiu solução de RPC própria por gRPC — citam performance comprovada e suporte multiplataforma como motivadores | [About gRPC — case study](https://grpc.io/about/), [Square Engineering Blog](https://medium.com/square-corner-blog/grpc-cross-platform-open-source-rpc-over-http-2-56c03b5a0173) |
+| **Netflix** | Usa Protobuf/gRPC no design de APIs internas (ex: uso de Protobuf FieldMask para otimizar respostas parciais) | [Netflix TechBlog — Practical API Design at Netflix, Part 1](https://netflixtechblog.com/practical-api-design-at-netflix-part-1-using-protobuf-fieldmask-35cfdc606518) |
+| **Uber** | Construiu um gateway de API baseado em gRPC (sobre Envoy) para tráfego entre os apps e os serviços de back-end | [Uber Engineering — The Architecture of Uber's API Gateway](https://www.uber.com/blog/architecture-api-gateway/) |
+| **Cloudflare, Datadog, Coinbase, DoorDash, Salesforce, Expedia Group, GIPHY, Toast** | Casos de adoção documentados oficialmente pelo próprio projeto gRPC (CNCF) | [gRPC Showcase](https://grpc.io/showcase/) |
+
+Outros exemplos amplamente conhecidos e documentados na própria infraestrutura das ferramentas (não citados aqui via artigo dedicado, mas de conhecimento público/técnico consolidado): **etcd** (o "banco de dados" de configuração por trás de todo cluster Kubernetes expõe sua API v3 via gRPC) e **containerd** (o runtime de containers usado pelo Docker/Kubernetes expõe sua API via gRPC).
+
+**Como usar isso na conversa com a gestora:** o argumento aqui não é "essas empresas são iguais à nossa", é que gRPC **não é uma tecnologia experimental ou de nicho** — é usada em produção, em escala, por empresas de tecnologia com times de performance dedicados (Google, Netflix, Uber, Square), o que reduz o risco percebido de adoção. Vale complementar essa lista com uma busca própria por casos do mesmo setor/porte da empresa, se existirem, para tornar o argumento ainda mais próximo da realidade do time.

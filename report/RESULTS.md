@@ -124,11 +124,51 @@ Para dar uma noção concreta de escala, simulamos (só matemática sobre os byt
 
 Para times com volumes ainda maiores (dezenas de milhares de lojas, múltiplas chamadas/dia), esse número escala linearmente e a economia absoluta cresce na mesma proporção.
 
-**Custo de compute (menos claro):** no cenário médio (mais representativo do tráfego real), o gRPC sustentou **20-29% mais throughput** com a mesma CPU/memória — em tese, isso poderia permitir atender a mesma carga com menos réplicas do serviço. No cenário grande, porém, os dois protocolos saturam igualmente CPU e memória (seção 4), então não há economia de compute nesse caso — o gargalo lá é o volume de dados por resposta, não o protocolo.
+### Custo de compute: menos pods para o mesmo throughput
 
-**Recomendação de leitura:** o ganho de custo mais defensável e imediato desta POC é a **redução de egress**, não a redução de compute. Antes de projetar economia, vale medir o volume real de tráfego mensal deste endpoint específico e aplicar a redução de ~55% sobre esse número real.
+Este é provavelmente o argumento de custo **mais forte** desta POC, mais do que o egress — compute (EC2/Fargate/EKS) costuma ser a maior linha da fatura de infraestrutura, não transferência de dados.
 
-## 7. Conclusão e recomendação
+No cenário médio (mais representativo do tráfego real, com concorrência de 20), o gRPC sustentou **20-29% mais throughput** com o **mesmo pod** (mesma CPU/memória, 1 vCPU/1GiB). Isso quer dizer que, para atender o mesmo pico de requisições/segundo, seriam necessárias **menos réplicas** do serviço.
+
+Exemplo de cálculo (premissas explícitas abaixo, ajustar com os números reais do seu ambiente):
+- Ganho de throughput considerado: **20%** (conservador — usamos o valor mais consistente entre baseline/cross-az; o pico de +79% em cross-region não foi usado para não superestimar).
+- Réplicas de referência por endpoint: **5 pods** de 1 vCPU/1GiB (premissa ilustrativa — troque pelo número real do seu serviço).
+- Custo de referência do pod: **AWS Fargate on-demand**, ~US$0,04048/vCPU-hora + ~US$0,004445/GB-hora ≈ **US$32,80/pod/mês** (1 vCPU + 1GiB, rodando 24/7).
+
+| | REST | gRPC | Redução |
+|---|---|---|---|
+| Pods necessários | 5,0 | 4,0 | -20% |
+| Custo de compute/ano | US$ 1.968 | US$ 1.574 | **US$ 393/ano** |
+
+Somando compute + egress, **um único endpoint deste porte economiza ~US$ 1.325/ano (36%)** — bem mais que os ~US$ 931/ano de egress isolado que discutimos antes.
+
+**No cenário grande (payload de 12 meses, baixa concorrência), essa lógica não se aplica**: os dois protocolos saturam igualmente CPU e memória (seção 4), então reduzir pods ali é arriscado (risco de OOM) — o gargalo é volume de dados por resposta, não o protocolo. A redução de compute é defensável para endpoints com tráfego concorrente típico (payload médio, muitas chamadas simultâneas), não para exports grandes e esporádicos.
+
+## 7. Cenário de escala: adoção em múltiplos endpoints
+
+Você perguntou: e se isso for adotado no sistema todo, não só neste endpoint? Esta seção simula (matemática sobre os números já medidos — nenhum teste adicional foi rodado) o efeito de aplicar o mesmo padrão de ganho (egress + compute, premissas da seção anterior) a **N endpoints de magnitude parecida** com o desta POC.
+
+| Endpoints migrados | Custo REST/ano | Custo gRPC/ano | Economia/ano | Pods REST | Pods gRPC |
+|---|---|---|---|---|---|
+| 1 | US$ 3.668 | US$ 2.343 | US$ 1.325 | 5 | 4 |
+| 5 | US$ 18.340 | US$ 11.717 | US$ 6.624 | 25 | 20 |
+| **10** | **US$ 36.680** | **US$ 23.433** | **US$ 13.247** | 50 | 40 |
+| 15 | US$ 55.021 | US$ 35.150 | US$ 19.871 | 75 | 60 |
+| **20** | **US$ 73.361** | **US$ 46.866** | **US$ 26.495** | 100 | 80 |
+
+**Respondendo diretamente ao exemplo pedido:** com **10 endpoints** de payload/tráfego parecido com o desta POC, a economia projetada é de **~US$ 13.250/ano** (egress + compute combinados) — e a infraestrutura necessária cai de 50 para 40 pods.
+
+![Infraestrutura necessária ao escalar](images/scale-pods.png)
+
+![Custo projetado ao escalar](images/scale-cost.png)
+
+**Com 20 endpoints** (cenário de produção plausível para um sistema com múltiplos serviços de consulta/relatório), a economia projetada chega a **~US$ 26.500/ano**, com **20 pods a menos** rodando permanentemente — isso é infraestrutura que deixa de existir, não só uma linha de custo menor: menos superfície para monitorar, menos capacidade reservada, menos objetos para o time de plataforma gerenciar.
+
+**Leia com cautela:** esta é uma extrapolação assumindo que os outros endpoints têm magnitude de payload/tráfego parecida com a medida aqui, e que a premissa de 5 pods/endpoint e o ganho de 20% de throughput se sustentam na prática. O objetivo deste gráfico não é prever o número exato, é mostrar a **direção e a ordem de grandeza** do ganho quando o mesmo padrão se repete em escala — o número real do seu sistema pode ser maior ou menor, e deve ser recalculado com os pods/tráfego reais de cada endpoint candidato.
+
+**Recomendação de leitura:** olhando para os três números juntos — egress de um endpoint (~US$ 931/ano), compute de um endpoint (~US$ 393/ano) e a projeção em escala (~US$ 13-26 mil/ano para 10-20 endpoints) — o argumento de custo só fica robusto **em escala**, aplicado a vários endpoints de alto tráfego, não como justificativa para migrar um endpoint isolado.
+
+## 8. Conclusão e recomendação
 
 **Onde o gRPC claramente compensa:**
 - Endpoints com tráfego concorrente relevante (dezenas de requisições simultâneas) — o ganho de throughput (+20-29%) e a robustez de latência sob rede ruim (p99 71% menor em cross-region) são diferenças que os usuários finais sentiriam diretamente.
@@ -152,11 +192,13 @@ Para times com volumes ainda maiores (dezenas de milhares de lojas, múltiplas c
 | Latência p99, rede ruim (cross-region) | 11.034 ms | 3.172 ms | **-71%** |
 | Throughput, tráfego concorrente (baseline) | 17,2 req/s | 22,2 req/s | **+29%** |
 | Tamanho do payload (histórico anual) | 13,1 MB | 5,9 MB | **-55%** |
-| Custo de egress projetado (4.000 lojas/dia, anual) | US$ 1.700 | US$ 769 | **-55% (US$ 931/ano)** |
+| Custo total (egress+compute), 1 endpoint/ano | US$ 3.668 | US$ 2.343 | **-36% (US$ 1.325/ano)** |
+| Custo total (egress+compute), 20 endpoints/ano | US$ 73.361 | US$ 46.866 | **-36% (US$ 26.495/ano)** |
+| Pods necessários, 20 endpoints | 100 | 80 | **-20 pods** |
 
 ![Resumo de desempenho e custo](images/final-summary.png)
 
-O ganho do gRPC é consistente nas duas frentes: **desempenho** (mais throughput, muito menos degradação de latência sob rede ruim) e **custo** (payload e egress ~55% menores). A ressalva fica pelos trade-offs operacionais da seção 5 — debugabilidade, geração de stubs, e a troca de componente de borda (API Gateway → ALB) — que são custos de adoção reais e não aparecem em nenhum desses gráficos.
+O ganho do gRPC é consistente em três frentes: **desempenho** (mais throughput, muito menos degradação de latência sob rede ruim), **custo direto** (payload e egress ~55% menores) e **custo de infraestrutura** (menos pods para o mesmo throughput, efeito que só fica financeiramente relevante quando aplicado a vários endpoints — ver seção 7). A ressalva fica pelos trade-offs operacionais da seção 5 — debugabilidade, geração de stubs, e a troca de componente de borda (API Gateway → ALB) — que são custos de adoção reais e não aparecem em nenhum desses gráficos.
 
 ---
 

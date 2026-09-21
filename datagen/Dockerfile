@@ -6,6 +6,7 @@ COPY sales-domain sales-domain
 COPY sales-service-rest sales-service-rest
 COPY sales-service-grpc sales-service-grpc
 COPY sales-service-rest-h2 sales-service-rest-h2
+COPY sales-service-msgpack sales-service-msgpack
 COPY proto proto
 COPY datagen datagen
 RUN ./gradlew :datagen:installDist --no-daemon -x test

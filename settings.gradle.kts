@@ -16,5 +16,6 @@ include(
     "sales-service-rest",
     "sales-service-grpc",
     "sales-service-rest-h2",
+    "sales-service-msgpack",
     "datagen"
 )

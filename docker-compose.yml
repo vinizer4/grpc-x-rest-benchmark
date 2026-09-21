@@ -98,6 +98,47 @@ services:
     depends_on:
       - sales-service-grpc
 
+  sales-service-rest-h2:
+    build:
+      context: .
+      dockerfile: sales-service-rest-h2/Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sales
+      DB_USER: sales
+      DB_PASSWORD: sales
+      SERVER_PORT: 8082
+      SSL_ENABLED: "true"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"
+    expose:
+      - "8082"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Same behavior as api-gateway-sim, but the client-facing listener
+  # negotiates HTTP/2 instead of HTTP/1.1. See gateway/api-gateway-sim-h2/nginx.conf.
+  api-gateway-sim-h2:
+    build:
+      context: .
+      dockerfile: gateway/api-gateway-sim-h2/Dockerfile
+    restart: on-failure
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8543:8443"
+    depends_on:
+      - sales-service-rest-h2
+
   # Run after sales-service-rest or sales-service-grpc has started at least once
   # (Flyway creates the schema on their startup; datagen only inserts into it).
   datagen:

@@ -6,6 +6,7 @@ COPY proto proto
 COPY sales-domain sales-domain
 COPY sales-service-rest sales-service-rest
 COPY sales-service-grpc sales-service-grpc
+COPY sales-service-rest-h2 sales-service-rest-h2
 COPY datagen datagen
 RUN ./gradlew :sales-service-grpc:bootJar --no-daemon -x test
 

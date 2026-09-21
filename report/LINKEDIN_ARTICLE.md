@@ -16,7 +16,7 @@ Montei um ambiente completo, do zero, simulando um caso de uso plausível de e-c
 
 **Topologia realista:** os dois serviços rodam atrás de gateways nginx simulando a AWS de verdade — **API Gateway** na frente do REST (com autenticação por API key e rate limiting) e **ALB** na frente do gRPC. Por quê dois gateways diferentes? Porque **API Gateway não suporta proxy gRPC nativamente** — na prática, adotar gRPC também significa mexer no componente de borda da infraestrutura, não é só trocar uma lib no código.
 
-**Dados:** 50 lojas × 5.000 produtos × 12 meses de histórico = ~3 milhões de registros, gerados de forma determinística (mesma seed, reproduzível).
+**Dados:** 50 lojas × 5.000 produtos × 12 meses de histórico = ~3 milhões de registros, gerados de forma determinística (mesma seed, reproduzível), **simulado 4000 request por dia**.
 
 **Condições de rede:** simulei 4 perfis via `tc`/netem — baseline (sem shaping), same-AZ (~0,5ms), cross-AZ (~1,5ms) e cross-region (~100ms) — porque testar só em localhost esconde exatamente o cenário onde a diferença entre protocolos mais aparece.
 

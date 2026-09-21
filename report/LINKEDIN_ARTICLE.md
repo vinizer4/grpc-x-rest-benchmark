@@ -60,7 +60,8 @@ Esse foi o resultado mais contundente. Quanto pior a rede, maior a vantagem do H
 
 ![Comparativo de tamanho de payload JSON vs Protobuf](images/payload-size.png)
 
-**Projeção de custo** (extrapolação matemática sobre os bytes já medidos — não rodei a aplicação em produção real, deixo isso claro no relatório):
+## Projeção de custo
+(extrapolação matemática sobre os bytes já medidos — não rodei a aplicação em produção real, deixo isso claro no relatório):
 
 | Endpoints migrados | Custo REST/ano | Custo gRPC/ano | Economia/ano | Pods REST | Pods gRPC |
 |---|---|---|---|---|---|
@@ -73,6 +74,16 @@ Esse foi o resultado mais contundente. Quanto pior a rede, maior a vantagem do H
 ![Custo projetado ao escalar](images/scale-cost.png)
 
 Esse último ponto é o que eu acho mais subestimado nessas discussões: o argumento de custo de gRPC não é sobre economizar na conta de transferência de dados — é sobre precisar de menos infraestrutura pra sustentar o mesmo throughput. Compute geralmente pesa muito mais que egress na fatura de nuvem.
+
+**A matemática por trás disso**: 
+
+O custo de egress usa o preço público de referência da AWS (~US$0,09/GB) aplicado sobre a diferença real de payload que medi (13,1MB em JSON vs 5,9MB em Protobuf, pra mesma resposta de 12 meses). 
+
+O custo de compute usa o preço público de referência do AWS Fargate (~US$32,80/pod/mês para 1 vCPU + 1GiB) — como o gRPC sustentou mais throughput no mesmo pod, são necessárias menos réplicas pro mesmo tráfego. 
+
+Pra um único endpoint, isso soma ~US$1.325/ano. O número de US$26.500 é essa mesma conta projetada em 20 endpoints de payload e tráfego parecidos, não são 20 endpoints que eu testei de verdade. 
+
+Fiz o payload propositalmente grande (12 meses, não um único dia) porque em payloads pequenos a diferença entre JSON e Protobuf diminui e a vantagem do gRPC fica bem menos visível.
 
 ## Os bugs que encontrei no caminho (a parte que ninguém mostra)
 

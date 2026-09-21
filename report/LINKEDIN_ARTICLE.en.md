@@ -16,7 +16,7 @@ I set up a complete environment from scratch, simulating a plausible e-commerce/
 
 **Realistic topology:** both services run behind nginx gateways simulating real AWS — **API Gateway** in front of REST (with API-key auth and rate limiting) and **ALB** in front of gRPC. Why two different gateways? Because **API Gateway doesn't support gRPC pass-through natively** — in practice, adopting gRPC also means touching the infrastructure's edge component, not just swapping a library in the code.
 
-**Data:** 50 stores × 5,000 products × 12 months of history = ~3 million records, generated deterministically (same seed, reproducible).
+**Data:** 50 stores × 5,000 products × 12 months of history = ~3 million records, generated deterministically (same seed, reproducible) **simulated 4,000 requests per day**.
 
 **Network conditions:** I simulated 4 profiles via `tc`/netem — baseline (no shaping), same-AZ (~0.5ms), cross-AZ (~1.5ms), and cross-region (~100ms) — because testing only on localhost hides exactly the scenario where the difference between protocols shows up the most.
 
@@ -73,6 +73,16 @@ This was the most striking result. The worse the network, the bigger gRPC's mult
 ![Projected cost as adoption scales](images/en/scale-cost.png)
 
 This last point is what I think is most underrated in these discussions: gRPC's cost argument isn't about saving on the data-transfer bill — it's about needing less infrastructure to sustain the same throughput. Compute usually weighs a lot more than egress on the cloud bill.
+
+**The math behind this:**
+
+The egress cost is based on the standard AWS public price (~US$0.09/GB) applied to the actual payload difference I measured (13.1 MB in JSON vs. 5.9 MB in Protobuf for the same 12-month response).
+
+The compute cost uses the standard AWS Fargate public price (~US$32.80/pod/month for 1 vCPU + 1 GiB)—since gRPC handled higher throughput within the same pod, fewer replicas are needed for the same traffic volume.
+
+For a single endpoint, this totals ~US$1,325/year. The US$26,500 figure is a projection based on that calculation applied to 20 endpoints with similar payload and traffic profiles; it does not represent 20 endpoints I actually tested.
+
+I intentionally used a large payload (12 months' worth of data rather than just a single day) because, with smaller payloads, the gap between JSON and Protobuf narrows, making gRPC's advantage much less apparent.
 
 ## The bugs I found along the way (the part nobody shows)
 

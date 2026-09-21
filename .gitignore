@@ -22,3 +22,5 @@ benchmark/results/*.json
 benchmark/results/*.csv
 benchmark/results/summary.md
 benchmark/results/charts/
+benchmark/results/summary-4way.md
+benchmark/results/charts-4way/

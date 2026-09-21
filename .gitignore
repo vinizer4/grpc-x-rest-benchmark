@@ -13,6 +13,10 @@ certs/sales-service-rest/
 certs/sales-service-grpc/
 certs/api-gateway-sim/
 certs/alb-grpc-sim/
+certs/sales-service-rest-h2/
+certs/sales-service-msgpack/
+certs/api-gateway-sim-h2/
+certs/edge-h3-sim/
 
 benchmark/results/*.json
 benchmark/results/*.csv

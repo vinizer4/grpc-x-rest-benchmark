@@ -38,7 +38,7 @@ Mesmo caso de uso real do time usado na POC original: consulta do histórico anu
 
 - **Protocolo**: `REST` = JSON via `api-gateway-sim`; `REST/H2` = JSON via `api-gateway-sim-h2`; `gRPC` = Protobuf via `alb-grpc-sim`; `HTTP/3` = MessagePack via `edge-h3-sim`.
 - **Cenário**: `médio` = consulta de 3 meses (~3,3MB em JSON); `grande` = consulta de 12 meses (~13,1MB em JSON).
-- **Perfil de rede**: latência simulada via `tc`/`netem` — `baseline`, `same-az` (~0,5ms), `cross-az` (~1,5ms), `cross-region` (~100ms).
+- **Perfil de rede**: latência simulada entre o gateway e o cliente via `tc`/`netem`, representando a distância física real entre cliente e serviço num deploy AWS — `baseline` (sem shaping; nenhuma latência de rede adicionada além do que o próprio Docker já impõe, o cenário mais favorável possível), `same-az` (~0,5ms; dois pods na mesma zona de disponibilidade), `cross-az` (~1,5ms; pods em zonas de disponibilidade diferentes, mesma região), `cross-region` (~100ms; tráfego entre regiões AWS diferentes, ex: cliente na América do Sul falando com um serviço nos EUA).
 - **p50 / p95 / p99**: percentis de latência por requisição, em milissegundos.
 - **Throughput**: requisições completadas por segundo, com a concorrência do cenário (20 no médio, 5 no grande).
 - **Sucesso**: percentual de requisições que completaram com resposta válida.

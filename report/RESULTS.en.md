@@ -30,7 +30,7 @@ The business logic is identical in both services (shared `sales-domain` module);
 
 - **Protocol**: `REST` = JSON via `api-gateway-sim`; `gRPC` = Protobuf via `alb-grpc-sim`.
 - **Scenario**: `medium` = 3-month query (15k sales + 15 promotions per response, ~3.3MB in JSON); `large` = 12-month query (60k sales + 60 promotions, ~13.1MB in JSON).
-- **Network profile**: latency simulated between the gateway and the client via `tc`/`netem` — `baseline` (no shaping), `same-az` (~0.5ms), `cross-az` (~1.5ms), `cross-region` (~100ms).
+- **Network profile**: latency simulated between the gateway and the client via `tc`/`netem`, representing the real physical distance between client and service in an AWS deployment — `baseline` (no shaping; no added network latency beyond what Docker itself already imposes, the most favorable scenario possible), `same-az` (~0.5ms; two pods in the same availability zone), `cross-az` (~1.5ms; pods in different availability zones, same region), `cross-region` (~100ms; traffic between different AWS regions, e.g. a client in South America talking to a service in the US).
 - **p50 / p95 / p99**: per-request latency percentiles, in milliseconds. **p50** is the median — half of requests were faster than this. **p95**/**p99** are the "tail" — the ceiling that 95%/99% of requests stayed under. Looking only at the median hides slowness spikes that affect a real fraction of users; that's why p99 matters as much as p50.
 - **Throughput**: how many requests the service completed per second during the load test, with the concurrency level used in that scenario (20 for medium, 5 for large). The higher, the more traffic the same pod can handle.
 - **Success**: percentage of requests that completed with a valid response within the test window.

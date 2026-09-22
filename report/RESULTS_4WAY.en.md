@@ -38,7 +38,7 @@ Same real use case from the original POC: a store's annual history, returning ag
 
 - **Protocol**: `REST` = JSON via `api-gateway-sim`; `REST/H2` = JSON via `api-gateway-sim-h2`; `gRPC` = Protobuf via `alb-grpc-sim`; `HTTP/3` = MessagePack via `edge-h3-sim`.
 - **Scenario**: `medium` = 3-month query (~3.3MB JSON); `large` = 12-month query (~13.1MB JSON).
-- **Network profile**: simulated latency via `tc`/`netem` — `baseline`, `same-az` (~0.5ms), `cross-az` (~1.5ms), `cross-region` (~100ms).
+- **Network profile**: latency simulated between the gateway and the client via `tc`/`netem`, representing the real physical distance between client and service in an AWS deployment — `baseline` (no shaping; no added network latency beyond what Docker itself already imposes, the most favorable scenario possible), `same-az` (~0.5ms; two pods in the same availability zone), `cross-az` (~1.5ms; pods in different availability zones, same region), `cross-region` (~100ms; traffic between different AWS regions, e.g. a client in South America talking to a service in the US).
 - **p50 / p95 / p99**: per-request latency percentiles, in milliseconds.
 - **Throughput**: requests completed per second, at the scenario's concurrency (20 medium, 5 large).
 - **Success**: percentage of requests that completed with a valid response.

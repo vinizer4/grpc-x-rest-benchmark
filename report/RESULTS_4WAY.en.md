@@ -38,7 +38,7 @@ Same real use case from the original POC: a store's annual history, returning ag
 
 - **Protocol**: `REST` = JSON via `api-gateway-sim`; `REST/H2` = JSON via `api-gateway-sim-h2`; `gRPC` = Protobuf via `alb-grpc-sim`; `HTTP/3` = MessagePack via `edge-h3-sim`.
 - **Scenario**: `medium` = 3-month query (~3.3MB JSON); `large` = 12-month query (~13.1MB JSON).
-- **Network profile**: simulated latency via `tc`/`netem` — `baseline`, `same-az` (~0.5ms), `cross-az` (~1.5ms), `cross-region` (~100ms).
+- **Network profile**: latency simulated between the gateway and the client via `tc`/`netem`, representing the real physical distance between client and service in an AWS deployment — `baseline` (no shaping; no added network latency beyond what Docker itself already imposes, the most favorable scenario possible), `same-az` (~0.5ms; two pods in the same availability zone), `cross-az` (~1.5ms; pods in different availability zones, same region), `cross-region` (~100ms; traffic between different AWS regions, e.g. a client in South America talking to a service in the US).
 - **p50 / p95 / p99**: per-request latency percentiles, in milliseconds.
 - **Throughput**: requests completed per second, at the scenario's concurrency (20 medium, 5 large).
 - **Success**: percentage of requests that completed with a valid response.
@@ -148,17 +148,17 @@ Same caveat as the original POC: this is a linear extrapolation over this POC's 
 
 ### Compute cost: pods needed for the same throughput
 
-**Important caveat:** because of the host contention described in section 1 (8 simultaneous services in this run), gRPC's throughput advantage over REST at `medium/baseline` **didn't repeat as cleanly** as in the original POC — here gRPC (17.8 req/s) came in slightly behind HTTP/1.1 REST (19.0 req/s) at that specific point, even though it clearly wins at the network-latency profiles (`same-az`, `cross-az`, `cross-region`, section 2). The table below uses this run's measured `medium/baseline` throughput, so it reflects this more crowded environment — treat it as an illustration of the method, not a definitive number, and prefer the non-baseline network profiles (more representative of real cross-AZ/cross-region traffic) to judge gRPC's real advantage.
+As shown in section 2, `baseline` throughput in this run is skewed by host contention (8 simultaneous services, see section 1) — there gRPC (17.8 req/s) even comes in slightly behind HTTP/1.1 REST (19.0 req/s), the opposite of the pattern that holds under every real-network-latency profile. Because of that, the table below uses `medium/cross-region` throughput (more representative of real cross-region traffic) as its basis instead of `baseline`.
 
-Assumptions: 5 reference pods per endpoint (1 vCPU/1GiB), AWS Fargate cost ≈ US$32.80/pod/month.
+Assumptions: 5 reference pods per endpoint (1 vCPU/1GiB) for HTTP/1.1 REST, scaled by each protocol's throughput ratio relative to it; AWS Fargate cost ≈ US$32.80/pod/month.
 
 | Endpoints migrated | REST pods | REST/H2 pods | gRPC pods | HTTP/3 pods |
 |---|---|---|---|---|
-| 1 | 5 | 7 | 5 | 12 |
-| 5 | 25 | 35 | 25 | 60 |
-| **10** | **50** | **70** | **50** | **120** |
-| 15 | 75 | 105 | 75 | 180 |
-| 20 | 100 | 140 | 100 | 240 |
+| 1 | 5 | 6 | **2** | 8 |
+| 5 | 25 | 28 | **9** | 42 |
+| **10** | **50** | **55** | **19** | **85** |
+| 15 | 75 | 83 | **28** | 127 |
+| 20 | 100 | 110 | **37** | 170 |
 
 ![Infrastructure needed at scale](images/scale-pods-4way.png)
 

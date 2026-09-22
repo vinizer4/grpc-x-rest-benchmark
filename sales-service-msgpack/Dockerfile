@@ -9,11 +9,11 @@ COPY sales-service-grpc sales-service-grpc
 COPY sales-service-rest-h2 sales-service-rest-h2
 COPY sales-service-msgpack sales-service-msgpack
 COPY datagen datagen
-RUN ./gradlew :sales-service-rest:bootJar --no-daemon -x test
+RUN ./gradlew :sales-service-msgpack:bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /workspace/sales-service-rest/build/libs/*.jar app.jar
-COPY certs/sales-service-rest /certs/sales-service-rest
-EXPOSE 8080
+COPY --from=build /workspace/sales-service-msgpack/build/libs/*.jar app.jar
+COPY certs/sales-service-msgpack /certs/sales-service-msgpack
+EXPOSE 8083
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -6,6 +6,7 @@ const API_KEY = __ENV.API_KEY || 'benchmark-poc-api-key';
 const STORE_COUNT = Number(__ENV.STORE_COUNT || 50);
 const SCENARIO = __ENV.SCENARIO || 'large'; // 'medium' (~3 months) or 'large' (~12 months)
 const PROFILE = __ENV.PROFILE || 'baseline'; // baseline|same-az|cross-az|cross-region, for output naming only
+const PROTOCOL_LABEL = __ENV.PROTOCOL_LABEL || 'rest'; // output filename prefix, e.g. 'resth2' when targeting api-gateway-sim-h2
 
 const MONTHS_BACK = SCENARIO === 'medium' ? 3 : 12;
 const endDate = new Date();
@@ -40,6 +41,6 @@ export default function () {
 
 export function handleSummary(data) {
   const outDir = __ENV.OUT_DIR || 'benchmark/results';
-  const outFile = `${outDir}/rest-${SCENARIO}-${PROFILE}.json`;
+  const outFile = `${outDir}/${PROTOCOL_LABEL}-${SCENARIO}-${PROFILE}.json`;
   return { [outFile]: JSON.stringify(data, null, 2) };
 }

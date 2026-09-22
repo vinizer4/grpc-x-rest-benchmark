@@ -7,7 +7,7 @@ set -euo pipefail
 CERT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PASSWORD="changeit"
 DAYS=3650
-SERVICES=(sales-service-rest sales-service-grpc api-gateway-sim alb-grpc-sim)
+SERVICES=(sales-service-rest sales-service-grpc api-gateway-sim alb-grpc-sim sales-service-rest-h2 api-gateway-sim-h2 sales-service-msgpack edge-h3-sim)
 
 rm -rf "$CERT_DIR/ca" "$CERT_DIR/truststore.p12"
 for svc in "${SERVICES[@]}"; do

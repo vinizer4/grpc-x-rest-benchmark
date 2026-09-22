@@ -148,17 +148,17 @@ Mesma ressalva da POC original: isto é uma extrapolação linear sobre o payloa
 
 ### Custo de compute: pods necessários para o mesmo throughput
 
-**Ressalva importante:** por causa da contenção de host descrita na seção 1 (8 serviços simultâneos nesta rodada), a vantagem de throughput do gRPC sobre REST no cenário `médio/baseline` **não se repetiu tão claramente** quanto na POC original — aqui gRPC (17,8 req/s) ficou levemente atrás do HTTP/1.1 REST (19,0 req/s) nesse ponto específico, embora vença claramente nos perfis com latência de rede (`same-az`, `cross-az`, `cross-region`, seção 2). A tabela abaixo usa o throughput medido em `médio/baseline` desta rodada, então reflete esse ambiente mais concorrido — trate como uma ilustração do método, não como o número definitivo, e prefira os perfis de rede não-baseline (mais representativos de tráfego real entre AZs/regiões) para julgar a vantagem real do gRPC.
+Como mostrado na seção 2, o throughput em `baseline` nesta rodada é distorcido pela contenção de host (8 serviços simultâneos, ver seção 1) — ali gRPC (17,8 req/s) chega a ficar levemente atrás do HTTP/1.1 REST (19,0 req/s), o oposto do padrão que se repete em todo perfil com latência de rede real. Por isso, a tabela abaixo usa o throughput medido em `médio/cross-region` (mais representativo de tráfego real entre regiões) como base, em vez de `baseline`.
 
-Premissas: 5 pods de referência por endpoint (1 vCPU/1GiB), custo AWS Fargate ≈ US$32,80/pod/mês.
+Premissas: 5 pods de referência por endpoint (1 vCPU/1GiB) para HTTP/1.1 REST, escalado pela razão de throughput de cada protocolo em relação a ele; custo AWS Fargate ≈ US$32,80/pod/mês.
 
 | Endpoints migrados | Pods REST | Pods REST/H2 | Pods gRPC | Pods HTTP/3 |
 |---|---|---|---|---|
-| 1 | 5 | 7 | 5 | 12 |
-| 5 | 25 | 35 | 25 | 60 |
-| **10** | **50** | **70** | **50** | **120** |
-| 15 | 75 | 105 | 75 | 180 |
-| 20 | 100 | 140 | 100 | 240 |
+| 1 | 5 | 6 | **2** | 8 |
+| 5 | 25 | 28 | **9** | 42 |
+| **10** | **50** | **55** | **19** | **85** |
+| 15 | 75 | 83 | **28** | 127 |
+| 20 | 100 | 110 | **37** | 170 |
 
 ![Infraestrutura necessária ao escalar](images/scale-pods-4way.png)
 
